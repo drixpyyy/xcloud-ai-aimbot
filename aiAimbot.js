@@ -25,7 +25,7 @@ const config = {
         fovRadius: 250,
         aimSpeed: 5,
         recoilCompensation: true,
-        recoilLevel: 3,
+        recoilLevel: 4,
         recoilPatterns: {
             1: { vertical: 0, horizontal: 0, recoverySpeed: 0.1 },
             2: { vertical: 0.2, horizontal: 0.05, recoverySpeed: 0.1 },
