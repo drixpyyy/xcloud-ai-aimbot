@@ -5,3 +5,12 @@ This is a JavaScript project that does what was once claimed to be impossible by
 Discord: https://discord.gg/EmdR3qgn8s
 
 basically run dependencies FIRST then run the ai aimbot and it should work if not then go to the discord for support
+
+
+## Settings
+
+Aim Intveral: Changes how fast the ai is, 350 is recommended for performance reasons but if u got a good pc u can try lower
+
+Controller emulation: Required for mouse movements to work, other than that its pretty useless its cause xcloud blocks any form of javascript that simulates mouse movements except extensions with the "Debugger" permissons and i alr got one that simulates mouse movements and clicks without any controller emulation it just chrome blocks the thing that installs the dependencies for the cheat
+
+basically everything else you should know like aim speed fov size etc
