@@ -14,7 +14,7 @@ const config = {
     detection: {
         enabled: true,
         modelType: 'cocossd',
-        confidence: 0.50,
+        confidence: 0.45,
         targetClass: 'person',
         maxDetections: 10,
     },
@@ -23,7 +23,7 @@ const config = {
         containerSelector: '#game-stream',
         aimInterval: 350, // Default now 350ms for performance and works decent
         fovRadius: 250,
-        aimSpeed: 0.25,
+        aimSpeed: 5,
         recoilCompensation: true,
         recoilLevel: 3,
         recoilPatterns: {
