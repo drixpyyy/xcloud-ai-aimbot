@@ -18,16 +18,16 @@ const config = {
         modelType: 'cocossd',   // Identifier for the model being used
         confidence: 0.50,       // Confidence threshold (0.0 to 1.0) - Adjust as needed
         targetClass: 'person',  // Coco SSD class for players
-        maxDetections: 10,      // Max number of detections per frame (performance)
+        maxDetections: 5,      // Max number of detections per frame (performance)
     },
 
     // --- Game settings ---
     game: {
         videoSelector: 'video[aria-label="Game Stream for unknown title"]',
         containerSelector: '#game-stream',
-        aimInterval: 50,        // Min ms between aim processing frames (lower = faster but more CPU)
+        aimInterval: 350,        // Min ms between aim processing frames (lower = faster but more CPU)
         fovRadius: 250,         // Field of View radius from screen center (pixels)
-        aimSpeed: 0.25,         // Smoothing factor for aim movement (0.05=slow, 1=instant)
+        aimSpeed: 1,         // Smoothing factor for aim movement (0.05=slow, 1=instant)
         recoilCompensation: true,
         recoilLevel: 3,         // 1=None, 2=Barely, 3=Slight, 4=ALot
         recoilPatterns: {       // Defines vertical/horizontal kick and recovery speed
