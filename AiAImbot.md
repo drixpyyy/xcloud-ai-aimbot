@@ -7,6 +7,7 @@ Discord: https://discord.gg/EmdR3qgn8s
 make sure ur not on fullscreen on xcloud and press ctrl + shift + i
 
 basically run dependencies FIRST then run the ai aimbot and it should work if not then go to the discord for support
+also this should work for geforce now but i never tested it
 
 
 ## Settings
