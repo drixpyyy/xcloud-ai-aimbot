@@ -20,7 +20,7 @@ basically everything else you should know like aim speed fov size etc
 
 
 
-# Ai AImbot(ChromeOS/Windows/Ios/Android/Xbox Support)
+# Ai AImbot (ChromeOS/Windows/Ios/Android/Xbox Suporte para o Brasil)
 
 Este é um projeto JavaScript que faz o que antes era considerado impossível por um desenvolvedor javascript experiente, também conhecido como proprietário da betterxcloud
 ## Setup
@@ -30,3 +30,4 @@ Certifique-se de que não esteja em tela cheia no xcloud e pressione ctrl + shif
 
 basicamente, execute as dependências PRIMEIRO e, em seguida, execute o aimbot de IA e ele deverá funcionar; caso contrário, acesse a discórdia para obter suporte
 isso também deve funcionar com a geforce agora, mas nunca testei
+
