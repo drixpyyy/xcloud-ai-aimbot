@@ -539,7 +539,7 @@ async function findGameVideoAndInit() {
                     alert("Critical libraries not found. Aimbot cannot start. Check console.");
                     return;
                 }
-                detectionModel = await cocoSsd.load({ base: 'mobilenet_v2' });
+                detectionModel = await cocoSsd.load({ base: 'lite_mobilenet_v2' });
                 debug.log("Coco SSD model (mobilenet_v2) loaded successfully.");
             } else {
                 debug.log("Coco SSD model already loaded.");
