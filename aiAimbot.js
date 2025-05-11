@@ -7,7 +7,7 @@
 // @grant        none
 // @run-at       document-end
 // @require      https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js
-// @require      https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@latest/dist/coco-ssd.min.js
+// @require      https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.2
 // ==/UserScript==
 
 const config = {
