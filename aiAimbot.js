@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         XcloudCheat v2.9.3 Fortnite KBM+Controller (Instant Aim Speed/Toggle)
-// @description  Fortnite aimbot with Coco SSD, controller+KBM emu, instant aim speed, full GUI (toggle controller on/off & set aim interval!)
-// @author       Wesd
-// @version      2.9.3
+// @name         XcloudCheat v3.0 KBM Aimbot (Fortnite)
+// @description  Fortnite aimbot for xCloud using KBM simulation with Coco SSD. Features: AI targeting, recoil control, auto-shoot, and GUI.
+// @author       Wesd (KBM integration by AI)
+// @version      3.0.0
 // @match        *://*.xbox.com/play/*
 // @grant        none
 // @run-at       document-end
@@ -20,10 +20,10 @@ const config = {
     },
     game: {
         videoSelector: 'video[aria-label="Game Stream for unknown title"]',
-        containerSelector: '#game-stream',
-        aimInterval: 350, // Default now 350ms for performance and works decent
+        containerSelector: '#game-stream', // May not be strictly needed for window events
+        aimInterval: 100, // Adjusted for potentially faster KBM response
         fovRadius: 250,
-        aimSpeed: 5,
+        // aimSpeed: 5, // Removed, KBM uses positionSmoothing primarily
         recoilCompensation: true,
         recoilLevel: 4,
         recoilPatterns: {
@@ -33,17 +33,17 @@ const config = {
             4: { vertical: 0.6, horizontal: 0.2, recoverySpeed: 0.2 },
         },
         autoShoot: true,
-        autoCrouchShoot: true,
+        autoCrouchShoot: true, // If true, pressing crouchKey will also shoot
         autoReload: true,
-        crouchKey: 'KeyQ',
+        crouchKey: 'KeyQ', // Key that triggers auto-shoot; can also be bound to crouch in-game
         reloadKey: 'KeyR',
         inventoryKeys: ['Digit1', 'Digit2', 'Digit3', 'Digit4', 'Digit5', 'Digit6', 'Digit7'],
-        controller: {
-            enabled: true,
-            xSensitivity: 0.5,
-            ySensitivity: 0.5,
-            deadzone: 0.15,
-        }
+        // controller: { // Controller specific config removed
+        //     enabled: true,
+        //     xSensitivity: 0.5,
+        //     ySensitivity: 0.5,
+        //     deadzone: 0.15,
+        // }
     },
     crosshair: {
         enabled: true,
@@ -64,8 +64,8 @@ const config = {
     aim: {
         positionSmoothing: true,
         historySize: 3,
-        targetPriority: "closest",
-        aimPoint: "center",
+        targetPriority: "closest", // "closest" or "center"
+        aimPoint: "center", // "center" or "top"
     },
     debug: {
         enabled: true,
@@ -123,76 +123,132 @@ const debug = {
 };
 
 const InputSimulator = {
-    gameContainer: null,
-    mousePos: { x: 0, y: 0 },
+    gameContainer: null, // For reference, though KBM events are on window
+    mousePos: { x: window.innerWidth / 2, y: window.innerHeight / 2 }, // Tracks last aim coordinate
     isShooting: false,
     recoilOffset: { x: 0, y: 0 },
-    controller: {
-        leftStickX: 0, leftStickY: 0, rightStickX: 0, rightStickY: 0,
-        buttons: {
-            a: false, b: false, x: false, y: false, leftBumper: false, rightBumper: false,
-            leftTrigger: 0, rightTrigger: 0,
-            back: false, start: false, leftStickPress: false, rightStickPress: false,
-            dpadUp: false, dpadDown: false, dpadLeft: false, dpadRight: false
-        }
-    },
     kbm: {
-        shooting: false,
-        inventory: [false,false,false,false,false,false,false],
+        lastClientX: window.innerWidth / 2,
+        lastClientY: window.innerHeight / 2,
+        leftButtonDown: false,
+        // State for locally pressed inventory keys (from original script)
+        inventoryActive: [false,false,false,false,false,false,false],
     },
+
+    _simulatePointerEvent(options) {
+        const {
+            type, // 'pointermove', 'pointerdown', 'pointerup'
+            clientX,
+            clientY,
+            movementX = 0,
+            movementY = 0,
+            button = 0, // 0 for left, 1 for middle, 2 for right
+            buttons = 0, // bitmask: 1 for left, 2 for right, 4 for middle
+            delay = 0 // Minimal delay, often 0 is fine for KBM
+        } = options;
+
+        let eventType;
+        let eventProps = {
+            bubbles: true,
+            cancelable: true,
+            view: window,
+            clientX: Math.round(clientX),
+            clientY: Math.round(clientY),
+            pointerType: 'mouse', // CRITICAL for xCloud
+        };
+
+        if (type === 'pointermove') {
+            eventType = 'pointermove';
+            eventProps.movementX = Math.round(movementX);
+            eventProps.movementY = Math.round(movementY);
+            eventProps.buttons = this.kbm.leftButtonDown ? 1 : 0; // Reflect current button state
+        } else if (type === 'pointerdown') {
+            eventType = 'pointerdown';
+            eventProps.button = button;
+            eventProps.buttons = buttons;
+            if (button === 0) this.kbm.leftButtonDown = true;
+        } else if (type === 'pointerup') {
+            eventType = 'pointerup';
+            eventProps.button = button;
+            eventProps.buttons = buttons; // Should be 0 if releasing the only button
+            if (button === 0) this.kbm.leftButtonDown = false;
+        } else {
+            debug.error("[InputSim] Invalid pointer event type:", type);
+            return;
+        }
+
+        if (!eventType) return;
+
+        setTimeout(() => { // Small timeout ensures event processing order if needed
+            const event = new PointerEvent(eventType, eventProps);
+            window.dispatchEvent(event);
+            // debug.log(`[InputSim] Dispatched '${eventType}' to (${eventProps.clientX}, ${eventProps.clientY})`);
+        }, delay);
+    },
+
     init() {
         this.gameContainer = document.querySelector(config.game.containerSelector);
-        if (!this.gameContainer) {
-            debug.error('Game container NOT found! Input simulation will likely fail.');
-            return false;
-        }
-        const rect = this.gameContainer.getBoundingClientRect();
-        this.mousePos = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
-        debug.log('Input simulator initialized targeting:', config.game.containerSelector);
+        // Initialize KBM position to center of screen
+        this.kbm.lastClientX = window.innerWidth / 2;
+        this.kbm.lastClientY = window.innerHeight / 2;
+        this.mousePos = { x: this.kbm.lastClientX, y: this.kbm.lastClientY };
+
+        // Dispatch an initial move event to establish KBM presence with xCloud
+        this._simulatePointerEvent({
+            type: 'pointermove',
+            clientX: this.kbm.lastClientX,
+            clientY: this.kbm.lastClientY,
+            movementX: 0,
+            movementY: 0,
+            delay: 100 // Give it a moment to register, as per original finding
+        });
+        debug.log('Input simulator (KBM) initialized. Initial pointermove sent.');
         this.listenKeyboard();
         return true;
     },
+
     listenKeyboard() {
         document.addEventListener('keydown', (e) => {
-            if (e.code === config.game.crouchKey && !this.kbm.shooting) {
-                this.kbm.shooting = true;
-                debug.log('KBM: Q (shoot) pressed');
+            if (e.code === config.game.crouchKey && !this.isShooting) { // Use this.isShooting to prevent re-trigger
+                // This key now primarily triggers shooting.
+                // If config.game.autoCrouchShoot is true, user should bind 'Q' to crouch in-game.
+                debug.log(`KBM: '${config.game.crouchKey}' (shoot trigger) pressed`);
                 this.startShooting();
             }
             config.game.inventoryKeys.forEach((key, idx) => {
-                if (e.code === key && !this.kbm.inventory[idx]) {
-                    this.kbm.inventory[idx] = true;
-                    debug.log(`KBM: Inventory Slot ${idx+1} down`);
-                    this.simulateInventory(idx);
+                if (e.code === key && !this.kbm.inventoryActive[idx]) {
+                    this.kbm.inventoryActive[idx] = true;
+                    debug.log(`KBM: User pressed Inventory Slot ${idx+1} ('${key}')`);
+                    // If the AI needs to *force* an inventory switch, it would call simulateInventory.
+                    // User pressing the key should be handled natively by the game.
+                    // this.simulateInventory(idx); // Only if we want to re-dispatch the key press
                 }
             });
         });
         document.addEventListener('keyup', (e) => {
             if (e.code === config.game.crouchKey) {
-                this.kbm.shooting = false;
-                debug.log('KBM: Q (shoot) released');
+                debug.log(`KBM: '${config.game.crouchKey}' (shoot trigger) released`);
                 this.stopShooting();
             }
             config.game.inventoryKeys.forEach((key, idx) => {
                 if (e.code === key) {
-                    this.kbm.inventory[idx] = false;
+                    this.kbm.inventoryActive[idx] = false;
                 }
             });
         });
     },
+
     simulateInventory(slotIdx) {
-        if (!config.game.controller.enabled) return;
-        switch(slotIdx) {
-            case 0: this.pressButton('dpadUp'); break;
-            case 1: this.pressButton('dpadRight'); break;
-            case 2: this.pressButton('dpadDown'); break;
-            case 3: this.pressButton('dpadLeft'); break;
-            case 4: this.pressButton('rightBumper'); break;
-            case 5: this.pressButton('leftBumper'); break;
-            case 6: this.pressButton('start'); break;
+        // For AI to programmatically select an inventory slot
+        if (slotIdx >= 0 && slotIdx < config.game.inventoryKeys.length) {
+            const keyToPress = config.game.inventoryKeys[slotIdx];
+            debug.log(`KBM: AI simulating inventory key press: ${keyToPress} (Slot ${slotIdx+1})`);
+            this.pressKey(keyToPress, 50);
         }
     },
+
     applyRecoil(targetX, targetY) {
+        // Logic unchanged, works well with KBM target coordinates
         if (!config.game.recoilCompensation || !config.game.recoilPatterns[config.game.recoilLevel] || !this.isShooting) {
             if (this.recoilOffset.x !== 0 || this.recoilOffset.y !== 0) {
                 const recoverySpeed = config.game.recoilPatterns[config.game.recoilLevel]?.recoverySpeed || 0.1;
@@ -204,141 +260,88 @@ const InputSimulator = {
             return { x: targetX, y: targetY };
         }
         const recoil = config.game.recoilPatterns[config.game.recoilLevel];
-        if (Math.abs(this.recoilOffset.x) < 0.1 && Math.abs(this.recoilOffset.y) < 0.1) {
-            const kickMultiplier = 5;
+        if (Math.abs(this.recoilOffset.x) < 0.1 && Math.abs(this.recoilOffset.y) < 0.1) { // Apply kick
+            const kickMultiplier = 5; // This might need tuning for KBM
             this.recoilOffset.y = recoil.vertical * kickMultiplier;
             this.recoilOffset.x = (Math.random() - 0.5) * 2 * recoil.horizontal * kickMultiplier;
-            debug.log(`Recoil kick: x=${this.recoilOffset.x.toFixed(2)}, y=${this.recoilOffset.y.toFixed(2)}`);
         }
         let newTargetX = targetX - this.recoilOffset.x;
-        let newTargetY = targetY + this.recoilOffset.y;
+        let newTargetY = targetY + this.recoilOffset.y; // Recoil typically kicks UP, so add to Y
         this.recoilOffset.x *= (1 - recoil.recoverySpeed);
         this.recoilOffset.y *= (1 - recoil.recoverySpeed);
         if (Math.abs(this.recoilOffset.x) < 0.01) this.recoilOffset.x = 0;
         if (Math.abs(this.recoilOffset.y) < 0.01) this.recoilOffset.y = 0;
         return { x: newTargetX, y: newTargetY };
     },
-    sendControllerInput() {
-        if (!config.game.controller.enabled || !this.gameContainer) return;
-        try {
-            const gamepad = {
-                id: "Simulated Xbox Controller (XcloudCheat)",
-                index: 0,
-                connected: true,
-                timestamp: performance.now(),
-                mapping: 'standard',
-                axes: [
-                    this.controller.leftStickX,
-                    this.controller.leftStickY,
-                    this.controller.rightStickX,
-                    this.controller.rightStickY
-                ],
-                buttons: [
-                    { pressed: this.controller.buttons.a, touched: this.controller.buttons.a, value: this.controller.buttons.a ? 1 : 0 },
-                    { pressed: this.controller.buttons.b, touched: this.controller.buttons.b, value: this.controller.buttons.b ? 1 : 0 },
-                    { pressed: this.controller.buttons.x, touched: this.controller.buttons.x, value: this.controller.buttons.x ? 1 : 0 },
-                    { pressed: this.controller.buttons.y, touched: this.controller.buttons.y, value: this.controller.buttons.y ? 1 : 0 },
-                    { pressed: this.controller.buttons.leftBumper, touched: this.controller.buttons.leftBumper, value: this.controller.buttons.leftBumper ? 1 : 0 },
-                    { pressed: this.controller.buttons.rightBumper, touched: this.controller.buttons.rightBumper, value: this.controller.buttons.rightBumper ? 1 : 0 },
-                    { pressed: this.controller.buttons.leftTrigger > 0, touched: this.controller.buttons.leftTrigger > 0, value: this.controller.buttons.leftTrigger },
-                    { pressed: this.controller.buttons.rightTrigger > 0, touched: this.controller.buttons.rightTrigger > 0, value: this.controller.buttons.rightTrigger },
-                    { pressed: this.controller.buttons.back, touched: this.controller.buttons.back, value: this.controller.buttons.back ? 1 : 0 },
-                    { pressed: this.controller.buttons.start, touched: this.controller.buttons.start, value: this.controller.buttons.start ? 1 : 0 },
-                    { pressed: this.controller.buttons.leftStickPress, touched: this.controller.buttons.leftStickPress, value: this.controller.buttons.leftStickPress ? 1 : 0 },
-                    { pressed: this.controller.buttons.rightStickPress, touched: this.controller.buttons.rightStickPress, value: this.controller.buttons.rightStickPress ? 1 : 0 },
-                    { pressed: this.controller.buttons.dpadUp, touched: this.controller.buttons.dpadUp, value: this.controller.buttons.dpadUp ? 1 : 0 },
-                    { pressed: this.controller.buttons.dpadDown, touched: this.controller.buttons.dpadDown, value: this.controller.buttons.dpadDown ? 1 : 0 },
-                    { pressed: this.controller.buttons.dpadLeft, touched: this.controller.buttons.dpadLeft, value: this.controller.buttons.dpadLeft ? 1 : 0 },
-                    { pressed: this.controller.buttons.dpadRight, touched: this.controller.buttons.dpadRight, value: this.controller.buttons.dpadRight ? 1 : 0 }
-                ]
-            };
-            navigator.getGamepads = () => [gamepad, null, null, null];
-        } catch (e) {
-            debug.error('Error sending controller input:', e);
-        }
-    },
+
     moveMouseTo(targetScreenX, targetScreenY) {
-        if (!this.gameContainer) return;
         const compensatedTarget = this.applyRecoil(targetScreenX, targetScreenY);
-        targetScreenX = compensatedTarget.x;
-        targetScreenY = compensatedTarget.y;
+        let finalTargetX = compensatedTarget.x;
+        let finalTargetY = compensatedTarget.y;
 
-        if (config.game.controller.enabled) {
-            const rect = this.gameContainer.getBoundingClientRect();
-            const centerX = rect.left + rect.width / 2;
-            const centerY = rect.top + rect.height / 2;
-            const dx = targetScreenX - centerX;
-            const dy = targetScreenY - centerY;
-            let rawStickX = (dx / (rect.width / 2)) * config.game.controller.xSensitivity;
-            let rawStickY = (dy / (rect.height / 2)) * config.game.controller.ySensitivity;
-            rawStickX = Math.max(-1, Math.min(1, rawStickX));
-            rawStickY = Math.max(-1, Math.min(1, rawStickY));
-            let finalStickX = (Math.abs(rawStickX) < config.game.controller.deadzone) ? 0 : rawStickX;
-            let finalStickY = (Math.abs(rawStickY) < config.game.controller.deadzone) ? 0 : rawStickY;
+        const movementX = finalTargetX - this.kbm.lastClientX;
+        const movementY = finalTargetY - this.kbm.lastClientY;
 
-            if (config.game.aimSpeed >= 1) {
-                this.controller.rightStickX = finalStickX;
-                this.controller.rightStickY = finalStickY;
-            } else {
-                this.controller.rightStickX += (finalStickX - this.controller.rightStickX) * config.game.aimSpeed;
-                this.controller.rightStickY += (finalStickY - this.controller.rightStickY) * config.game.aimSpeed;
-                if (Math.abs(this.controller.rightStickX) < config.game.controller.deadzone) this.controller.rightStickX = 0;
-                if (Math.abs(this.controller.rightStickY) < config.game.controller.deadzone) this.controller.rightStickY = 0;
-            }
-            this.sendControllerInput();
-        } else {
-            this.fallbackMoveMouse(targetScreenX, targetScreenY);
-        }
-    },
-    fallbackMoveMouse(targetX, targetY) {
-        const event = new MouseEvent('mousemove', {
-            bubbles: true, clientX: targetX, clientY: targetY
+        this._simulatePointerEvent({
+            type: 'pointermove',
+            clientX: finalTargetX,
+            clientY: finalTargetY,
+            movementX: movementX,
+            movementY: movementY,
+            delay: 0 // Moves should be quick
         });
-        if (this.gameContainer) { this.gameContainer.dispatchEvent(event); }
-        this.mousePos = { x: targetX, y: targetY };
+
+        this.kbm.lastClientX = finalTargetX;
+        this.kbm.lastClientY = finalTargetY;
+        this.mousePos = { x: finalTargetX, y: finalTargetY };
     },
+
     startShooting() {
         if (this.isShooting) return;
         this.isShooting = true;
-        debug.log("Shooting START (ctrl+kbm)");
-        if (config.game.controller.enabled) this.controller.buttons.rightTrigger = 1.0;
-        this.sendControllerInput();
-        this.pressKey('KeyQ', 25);
+        debug.log("Shooting START (KBM)");
+
+        this._simulatePointerEvent({
+            type: 'pointerdown',
+            clientX: this.kbm.lastClientX, // Shoot at current/last aim point
+            clientY: this.kbm.lastClientY,
+            button: 0, // Left mouse button
+            buttons: 1, // Left mouse button pressed bitmask
+            delay: 0
+        });
     },
+
     stopShooting() {
         if (!this.isShooting) return;
         this.isShooting = false;
-        debug.log("Shooting STOP (ctrl+kbm)");
-        if (config.game.controller.enabled) this.controller.buttons.rightTrigger = 0.0;
-        this.sendControllerInput();
+        debug.log("Shooting STOP (KBM)");
+
+        this._simulatePointerEvent({
+            type: 'pointerup',
+            clientX: this.kbm.lastClientX, // Release at current/last aim point
+            clientY: this.kbm.lastClientY,
+            button: 0, // Left mouse button
+            buttons: 0, // No buttons pressed
+            delay: 0
+        });
     },
-    pressButton(buttonName, duration = 50) {
-        if (!config.game.controller.enabled || !this.controller.buttons.hasOwnProperty(buttonName)) return;
-        debug.log(`Pressing button: ${buttonName}`);
-        this.controller.buttons[buttonName] = true;
-        if (buttonName === 'leftTrigger' || buttonName === 'rightTrigger') {
-            this.controller.buttons[buttonName] = 1.0;
-        }
-        this.sendControllerInput();
-        setTimeout(() => {
-            debug.log(`Releasing button: ${buttonName}`);
-            this.controller.buttons[buttonName] = false;
-            if (buttonName === 'leftTrigger' || buttonName === 'rightTrigger') {
-                this.controller.buttons[buttonName] = 0.0;
-            }
-            this.sendControllerInput();
-        }, duration);
-    },
+
     pressKey(code, duration = 50) {
-        debug.log("Simulate key press:", code);
-        const downEvt = new KeyboardEvent('keydown', { code, key: code.replace(/^Key|Digit/, ''), bubbles: true });
-        const upEvt = new KeyboardEvent('keyup', { code, key: code.replace(/^Key|Digit/, ''), bubbles: true });
+        // This function remains useful for simulating any discrete key press
+        debug.log("[InputSim] Simulate KBM key press:", code, `duration: ${duration}ms`);
+        const key = code.replace(/^(Key|Digit)/, ''); // Attempt to get the character value
+        const downEvt = new KeyboardEvent('keydown', { code: code, key: key, bubbles: true, cancelable: true, view: window });
         document.dispatchEvent(downEvt);
-        setTimeout(() => document.dispatchEvent(upEvt), duration);
+        if (duration > 0) {
+            setTimeout(() => {
+                const upEvt = new KeyboardEvent('keyup', { code: code, key: key, bubbles: true, cancelable: true, view: window });
+                document.dispatchEvent(upEvt);
+            }, duration);
+        }
     }
 };
 
-function createOverlayCanvas() {
+function createOverlayCanvas() { /* ... Unchanged ... */
     if (overlayCanvas) return;
     overlayCanvas = document.createElement('canvas');
     overlayCanvas.id = 'xcloud-cheat-overlay';
@@ -353,8 +356,7 @@ function createOverlayCanvas() {
     });
     debug.log('Overlay canvas created');
 }
-
-function drawOverlay(predictions = []) {
+function drawOverlay(predictions = []) { /* ... Unchanged ... */
     if (!overlayCtx || !gameVideo) return;
     overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
     const videoRect = gameVideo.getBoundingClientRect();
@@ -387,8 +389,7 @@ function drawOverlay(predictions = []) {
         });
     }
 }
-
-function createCrosshair() {
+function createCrosshair() { /* ... Unchanged ... */
     if (!config.crosshair.enabled) return;
     const c = document.createElement('canvas');
     c.id = 'xcloud-crosshair';
@@ -419,20 +420,13 @@ function createCrosshair() {
     debug.log('Crosshair created');
 }
 
-function setupAutoCrouch() {
+// Modified: autoCrouchShoot implies pressing crouchKey triggers shooting.
+// User should bind crouchKey to crouch in-game if they want that effect too.
+function setupAutoCrouchShoot() {
     if (!config.game.autoCrouchShoot) return;
-    debug.log('Auto-crouch+shoot keybind active for:', config.game.crouchKey);
-    document.addEventListener('keydown', (e) => {
-        if (e.code === config.game.crouchKey && !e.repeat) {
-            debug.log('Crouch key pressed, attempting shoot');
-            InputSimulator.startShooting();
-        }
-    });
-    document.addEventListener('keyup', (e) => {
-        if (e.code === config.game.crouchKey) {
-            InputSimulator.stopShooting();
-        }
-    });
+    // The main logic for this is now in InputSimulator.listenKeyboard
+    // which calls start/stopShooting when config.game.crouchKey is pressed/released.
+    debug.log(`Auto-shoot enabled, triggered by key: ${config.game.crouchKey}`);
 }
 
 function setupAutoReload() {
@@ -440,8 +434,11 @@ function setupAutoReload() {
     debug.log('Auto-reload keybind active for:', config.game.reloadKey);
     document.addEventListener('keydown', (e) => {
         if (e.code === config.game.reloadKey && !e.repeat) {
-            debug.log('Reload key pressed, simulating X button press');
-            InputSimulator.pressButton('x', 75);
+            debug.log(`'${config.game.reloadKey}' (reload key) pressed by user.`);
+            // The game should pick up the user's 'R' press.
+            // If we want the script to *force* a reload action on top of user's press:
+            // InputSimulator.pressKey(config.game.reloadKey, 75);
+            // For now, assume user's key press is sufficient. If not, uncomment above.
         }
     });
 }
@@ -450,6 +447,7 @@ function createGUI() {
     if (document.getElementById('xcloudcheat-gui')) return;
     const gui = document.createElement('div');
     gui.id = 'xcloudcheat-gui';
+    // Styles largely unchanged
     gui.style.cssText = `
         position: fixed; top: 60px; right: 30px; width: 400px; min-width: 320px; max-width: 460px;
         background: linear-gradient(120deg,#17171d 60%,#232340 100%);
@@ -461,13 +459,13 @@ function createGUI() {
     `;
     gui.innerHTML = `
         <div style="display:flex;justify-content:space-between;align-items:center;">
-          <h2 style="margin:0;color:#6df;">Wesd Ai Aimbot <span style="font-size:15px;font-weight:400;opacity:.6;">v2.9.3 (Fortnite)</span></h2>
-          <button id="xcloudcheat-close" style="background:none;border:none;color:#faa;font-size:22px;font-weight:bold;cursor:pointer;padding:0 8px;">&times;</button>
+          <h2 style="margin:0;color:#6df;">Wesd Ai Aimbot <span style="font-size:15px;font-weight:400;opacity:.6;">v3.0 (KBM Fortnite)</span></h2>
+          <button id="xcloudcheat-close" style="background:none;border:none;color:#faa;font-size:22px;font-weight:bold;cursor:pointer;padding:0 8px;">×</button>
         </div>
         <div style="margin:14px 0 10px 0;">
             <span style="color:#68f;font-size:15px;">Status:</span>
             <span id="xcloudcheat-status" style="color:#5f5;font-weight:600;">Active</span>
-            <span style="float:right;color:#aaa;font-size:13px;font-style:italic;">Fortnite KBM+Controller</span>
+            <span style="float:right;color:#aaa;font-size:13px;font-style:italic;">Fortnite KBM Mode</span>
         </div>
         <hr style="border:1px solid #334;">
         <div style="margin-bottom: 10px;">
@@ -481,21 +479,18 @@ function createGUI() {
         </div>
         <div class="xcloudcheat-row" style="margin-bottom: 8px;">
           <label>Aim Interval: <span id="interval-val">${config.game.aimInterval}</span>ms</label>
-          <input type="range" id="aim-interval" min="50" max="1000" step="10" style="width:65%;" value="${config.game.aimInterval}">
+          <input type="range" id="aim-interval" min="30" max="500" step="10" style="width:65%;" value="${config.game.aimInterval}">
         </div>
-        <div class="xcloudcheat-row" style="margin-bottom: 8px;">
-          <label>Aim Speed: <span id="speed-val">${config.game.aimSpeed.toFixed(2)}</span></label>
-          <input type="range" id="aim-speed" min="0.05" max="5" step="0.01" style="width:65%;" value="${config.game.aimSpeed}">
-        </div>
+        <!-- Aim Speed slider removed as KBM uses positionSmoothing primarily -->
         <div class="xcloudcheat-row" style="margin-bottom: 8px;">
           <label>FOV Radius: <span id="fov-val">${config.game.fovRadius}</span>px</label>
           <input type="range" id="fov-radius" min="50" max="600" step="10" style="width:65%;" value="${config.game.fovRadius}">
         </div>
         <div class="xcloudcheat-row" style="margin-bottom: 8px;">
-          <label>Priority:
+          <label>Target Priority:
             <select id="target-priority">
-              <option value="closest" ${config.aim.targetPriority === "closest" ? 'selected' : ''}>Closest</option>
-              <option value="center" ${config.aim.targetPriority === "center" ? 'selected' : ''}>Center</option>
+              <option value="closest" ${config.aim.targetPriority === "closest" ? 'selected' : ''}>Closest to Crosshair</option>
+              <option value="center" ${config.aim.targetPriority === "center" ? 'selected' : ''}>Closest to Screen Center</option>
             </select>
           </label>
         </div>
@@ -503,7 +498,7 @@ function createGUI() {
           <label>Aim Point:
             <select id="aim-point">
               <option value="center" ${config.aim.aimPoint === "center" ? 'selected' : ''}>Box Center</option>
-              <option value="top" ${config.aim.aimPoint === "top" ? 'selected' : ''}>Box Top</option>
+              <option value="top" ${config.aim.aimPoint === "top" ? 'selected' : ''}>Box Top (Head)</option>
             </select>
           </label>
         </div>
@@ -511,9 +506,9 @@ function createGUI() {
           <label>Recoil Level:
             <select id="recoil-level">
               <option value="1" ${config.game.recoilLevel === 1 ? 'selected' : ''}>1 (None)</option>
-              <option value="2" ${config.game.recoilLevel === 2 ? 'selected' : ''}>2 (Barely)</option>
-              <option value="3" ${config.game.recoilLevel === 3 ? 'selected' : ''}>3 (Slight)</option>
-              <option value="4" ${config.game.recoilLevel === 4 ? 'selected' : ''}>4 (A Lot)</option>
+              <option value="2" ${config.game.recoilLevel === 2 ? 'selected' : ''}>2 (Low)</option>
+              <option value="3" ${config.game.recoilLevel === 3 ? 'selected' : ''}>3 (Medium)</option>
+              <option value="4" ${config.game.recoilLevel === 4 ? 'selected' : ''}>4 (High)</option>
             </select>
           </label>
         </div>
@@ -521,30 +516,22 @@ function createGUI() {
           <label><input type="checkbox" id="draw-boxes" ${config.boundingBoxes.enabled ? 'checked' : ''}> Bounding Boxes</label>
           <label style="margin-left:18px;"><input type="checkbox" id="draw-fov" ${config.fovCircle.enabled ? 'checked' : ''}> FOV Circle</label>
         </div>
-        <div class="xcloudcheat-row" style="margin-bottom: 8px;">
-          <label><input type="checkbox" id="controller-enabled" ${config.game.controller.enabled ? 'checked' : ''}> <b>Enable Controller</b></label>
-          <label style="margin-left:18px;">X Sens: <span id="x-sens-val">${config.game.controller.xSensitivity.toFixed(2)}</span></label>
-          <input type="range" id="x-sensitivity" min="0.1" max="2" step="0.01" style="width:25%;" value="${config.game.controller.xSensitivity}">
-          <label style="margin-left:18px;">Y Sens: <span id="y-sens-val">${config.game.controller.ySensitivity.toFixed(2)}</span></label>
-          <input type="range" id="y-sensitivity" min="0.1" max="2" step="0.01" style="width:25%;" value="${config.game.controller.ySensitivity}">
-          <label style="margin-left:18px;">Deadzone: <span id="deadzone-val">${config.game.controller.deadzone.toFixed(2)}</span></label>
-          <input type="range" id="deadzone" min="0.01" max="0.5" step="0.01" style="width:25%;" value="${config.game.controller.deadzone}">
-        </div>
-        <div style="margin-top: 11px; margin-bottom: 2px; color:#5df;">Controller/KBM Mapping (Fortnite)</div>
+        <!-- Controller specific settings removed -->
+        <div style="margin-top: 11px; margin-bottom: 2px; color:#5df;">KBM Mappings (Fortnite)</div>
         <div style="font-size:14px;line-height:1.6;background:#171b2c;border-radius:8px;padding:8px 12px;margin-bottom:8px;">
-          <b>Shoot:</b> <span style="color:#fff;background:#2e4;padding:1px 6px;border-radius:4px;">Q</span> <br>
-          <b>Inventory Slots:</b>
-          <span style="color:#fff;background:#39f;padding:1px 5px;border-radius:3px;">1-4</span> (DPad Up/Right/Down/Left),
-          <span style="color:#fff;background:#39f;padding:1px 5px;border-radius:3px;">5/6</span> (RB/LB),
-          <span style="color:#fff;background:#39f;padding:1px 5px;border-radius:3px;">7</span> (Start)
+          <b>Auto-Shoot Trigger:</b> <span style="color:#fff;background:#2e4;padding:1px 6px;border-radius:4px;">${config.game.crouchKey.replace('Key','')}</span> <br>
+          <b>Reload:</b> <span style="color:#fff;background:#f73;padding:1px 6px;border-radius:4px;">${config.game.reloadKey.replace('Key','')}</span> <br>
+          <b>Inventory Slots (Game Default):</b>
+          <span style="color:#fff;background:#39f;padding:1px 5px;border-radius:3px;">1-7</span>
         </div>
         <div style="margin-top:10px;text-align:right;">
-          <span style="font-size:12px;color:#bbb;">UD INJECTION</span>
+          <span style="font-size:12px;color:#bbb;">KBM INJECTION</span>
         </div>
     `;
     document.body.appendChild(gui);
     document.getElementById('xcloudcheat-close').onclick = () => gui.remove();
 
+    // Event listeners for GUI elements
     document.getElementById('detection-enabled').onchange = (e) => config.detection.enabled = e.target.checked;
     document.getElementById('auto-shoot').onchange = (e) => config.game.autoShoot = e.target.checked;
     document.getElementById('recoil-comp').onchange = (e) => config.game.recoilCompensation = e.target.checked;
@@ -558,10 +545,6 @@ function createGUI() {
         config.game.aimInterval = parseInt(e.target.value, 10);
         document.getElementById('interval-val').textContent = config.game.aimInterval;
     };
-    document.getElementById('aim-speed').oninput = (e) => {
-        config.game.aimSpeed = parseFloat(e.target.value);
-        document.getElementById('speed-val').textContent = config.game.aimSpeed.toFixed(2);
-    };
     document.getElementById('fov-radius').oninput = (e) => {
         config.game.fovRadius = parseInt(e.target.value, 10);
         document.getElementById('fov-val').textContent = config.game.fovRadius;
@@ -569,23 +552,11 @@ function createGUI() {
     document.getElementById('target-priority').onchange = (e) => config.aim.targetPriority = e.target.value;
     document.getElementById('aim-point').onchange = (e) => config.aim.aimPoint = e.target.value;
     document.getElementById('recoil-level').onchange = (e) => config.game.recoilLevel = parseInt(e.target.value, 10);
-    document.getElementById('controller-enabled').onchange = (e) => config.game.controller.enabled = e.target.checked;
-    document.getElementById('x-sensitivity').oninput = (e) => {
-        config.game.controller.xSensitivity = parseFloat(e.target.value);
-        document.getElementById('x-sens-val').textContent = config.game.controller.xSensitivity.toFixed(2);
-    };
-    document.getElementById('y-sensitivity').oninput = (e) => {
-        config.game.controller.ySensitivity = parseFloat(e.target.value);
-        document.getElementById('y-sens-val').textContent = config.game.controller.ySensitivity.toFixed(2);
-    };
-    document.getElementById('deadzone').oninput = (e) => {
-        config.game.controller.deadzone = parseFloat(e.target.value);
-        document.getElementById('deadzone-val').textContent = config.game.controller.deadzone.toFixed(2);
-    };
-    debug.log("GUI Created (now with aim interval slider!)");
+
+    debug.log("GUI Created (KBM Mode)");
 }
 
-async function findGameVideoAndInit() {
+async function findGameVideoAndInit() { /* ... Largely Unchanged, but calls new setupAutoCrouchShoot ... */
     gameVideo = document.querySelector(config.game.videoSelector);
     if (gameVideo && gameVideo.readyState >= 2 && gameVideo.videoWidth > 0 && gameVideo.videoHeight > 0) {
         debug.log(`Game video found: ${gameVideo.videoWidth}x${gameVideo.videoHeight}`);
@@ -599,11 +570,11 @@ async function findGameVideoAndInit() {
             } else {
                 debug.log("Coco SSD model already loaded.");
             }
-            if (InputSimulator.init()) {
+            if (InputSimulator.init()) { // This now initializes KBM simulation
                 createOverlayCanvas();
                 createCrosshair();
                 createGUI();
-                setupAutoCrouch();
+                setupAutoCrouchShoot(); // Renamed/refocused
                 setupAutoReload();
                 startAimLoop();
             } else {
@@ -622,9 +593,8 @@ async function findGameVideoAndInit() {
         setTimeout(findGameVideoAndInit, 1500);
     }
 }
-
-function startAimLoop() {
-    debug.log('Starting main aim loop...');
+function startAimLoop() { /* ... Unchanged (controller stick reset removed) ... */
+    debug.log('Starting main aim loop (KBM)...');
     let lastFrameTime = 0;
     function loop(currentTime) {
         requestAnimationFrame(loop);
@@ -634,11 +604,7 @@ function startAimLoop() {
         utils.fps.update();
         if (!config.detection.enabled || !detectionModel || !gameVideo || gameVideo.paused || gameVideo.ended || gameVideo.videoWidth === 0) {
             if (InputSimulator.isShooting) InputSimulator.stopShooting();
-            if (config.game.controller.enabled) {
-                InputSimulator.controller.rightStickX = 0;
-                InputSimulator.controller.rightStickY = 0;
-                InputSimulator.sendControllerInput();
-            }
+            // No controller stick reset needed
             drawOverlay([]);
             currentTarget = null;
             positionHistory = [];
@@ -648,8 +614,7 @@ function startAimLoop() {
     }
     loop(performance.now());
 }
-
-async function aimLoop() {
+async function aimLoop() { /* ... Unchanged (controller stick reset removed) ... */
     if (!detectionModel || !gameVideo || gameVideo.videoWidth === 0) return;
     let predictions = [];
     try {
@@ -668,78 +633,84 @@ async function aimLoop() {
             debug.error('Aimbot loop error:', e);
         }
         if (InputSimulator.isShooting) InputSimulator.stopShooting();
-        if(config.game.controller.enabled) {
-            InputSimulator.controller.rightStickX = 0;
-            InputSimulator.controller.rightStickY = 0;
-            InputSimulator.sendControllerInput();
-        }
+        // No controller stick reset needed
         currentTarget = null;
         positionHistory = [];
         drawOverlay([]);
     }
 }
 
-function processPredictions(targets) {
+function processPredictions(targets) { // Logic for target selection unchanged, output is KBM
     const videoRect = gameVideo.getBoundingClientRect();
     if (!targets.length || !videoRect || videoRect.width === 0) {
         if (currentTarget) debug.log("Target lost.");
         currentTarget = null;
         positionHistory = [];
         if (InputSimulator.isShooting) InputSimulator.stopShooting();
-        if(config.game.controller.enabled) {
-            InputSimulator.controller.rightStickX = 0;
-            InputSimulator.controller.rightStickY = 0;
-            InputSimulator.sendControllerInput();
-        }
+        // No controller stick reset
         return;
     }
     const screenCenterX = videoRect.left + videoRect.width / 2;
     const screenCenterY = videoRect.top + videoRect.height / 2;
     let bestTarget = null;
     let minScore = Infinity;
+
     targets.forEach(target => {
         const targetCenterX_video = target.bbox[0] + target.bbox[2] / 2;
         const targetCenterY_video = target.bbox[1] + target.bbox[3] / 2;
         const targetCenterX_screen = videoRect.left + (targetCenterX_video / gameVideo.videoWidth) * videoRect.width;
         const targetCenterY_screen = videoRect.top + (targetCenterY_video / gameVideo.videoHeight) * videoRect.height;
-        const dx = targetCenterX_screen - screenCenterX;
-        const dy = targetCenterY_screen - screenCenterY;
+
+        let evalCenterX, evalCenterY;
+        if (config.aim.targetPriority === "center") { // Closest to actual screen center
+            evalCenterX = screenCenterX;
+            evalCenterY = screenCenterY;
+        } else { // Closest to KBM virtual crosshair (last aimed position)
+            evalCenterX = InputSimulator.mousePos.x; // Use the KBM's current aiming point
+            evalCenterY = InputSimulator.mousePos.y;
+        }
+
+        const dx = targetCenterX_screen - evalCenterX;
+        const dy = targetCenterY_screen - evalCenterY;
         const distance = Math.hypot(dx, dy);
-        if (distance > config.game.fovRadius) return;
-        let score = distance;
+
+        if (distance > config.game.fovRadius) return; // Target out of FOV
+
+        let score = distance; // Default score is distance
         if (score < minScore) {
             minScore = score;
             bestTarget = target;
         }
     });
+
     if (!bestTarget) {
         if (currentTarget) debug.log("Target lost (Out of FOV or no priority match).");
         currentTarget = null;
         positionHistory = [];
         if (InputSimulator.isShooting) InputSimulator.stopShooting();
-        if(config.game.controller.enabled) {
-            InputSimulator.controller.rightStickX = 0;
-            InputSimulator.controller.rightStickY = 0;
-            InputSimulator.sendControllerInput();
-        }
+        // No controller stick reset
         return;
     }
-    if (!currentTarget || currentTarget.bbox[0] !== bestTarget.bbox[0]) {
+
+    if (!currentTarget || currentTarget.bbox[0] !== bestTarget.bbox[0]) { // Basic check if target changed
         debug.log(`New target acquired: ${bestTarget.class} (${(bestTarget.score*100).toFixed(1)}%), Dist: ${minScore.toFixed(0)}px`);
     }
     currentTarget = bestTarget;
+
     let aimScreenX, aimScreenY;
     const bboxX_screen = videoRect.left + (bestTarget.bbox[0] / gameVideo.videoWidth) * videoRect.width;
     const bboxY_screen = videoRect.top + (bestTarget.bbox[1] / gameVideo.videoHeight) * videoRect.height;
     const bboxW_screen = (bestTarget.bbox[2] / gameVideo.videoWidth) * videoRect.width;
     const bboxH_screen = (bestTarget.bbox[3] / gameVideo.videoHeight) * videoRect.height;
-    if (config.aim.aimPoint === "top") {
+
+    if (config.aim.aimPoint === "top") { // Aim for the top part of the bounding box (headshot attempt)
         aimScreenX = bboxX_screen + bboxW_screen / 2;
-        aimScreenY = bboxY_screen + bboxH_screen * 0.15;
-    } else {
+        aimScreenY = bboxY_screen + bboxH_screen * 0.15; // Adjust 0.15 as needed
+    } else { // Aim for the center of the bounding box
         aimScreenX = bboxX_screen + bboxW_screen / 2;
         aimScreenY = bboxY_screen + bboxH_screen / 2;
     }
+
     if (config.aim.positionSmoothing && config.aim.historySize > 0) {
         positionHistory.push({ x: aimScreenX, y: aimScreenY });
         if (positionHistory.length > config.aim.historySize) {
@@ -750,21 +721,25 @@ function processPredictions(targets) {
         aimScreenX = sumX / positionHistory.length;
         aimScreenY = sumY / positionHistory.length;
     } else {
-        positionHistory = [];
+        positionHistory = []; // Clear history if smoothing disabled
     }
-    InputSimulator.moveMouseTo(aimScreenX, aimScreenY);
+
+    InputSimulator.moveMouseTo(aimScreenX, aimScreenY); // This now uses KBM
+
     if (config.game.autoShoot) {
         if (!InputSimulator.isShooting) {
-            InputSimulator.startShooting();
+            InputSimulator.startShooting(); // This now uses KBM
         }
-    } else {
+    } else { // If auto-shoot is disabled, ensure we stop shooting if we were
         if (InputSimulator.isShooting) {
-            InputSimulator.stopShooting();
+            InputSimulator.stopShooting(); // This now uses KBM
         }
     }
 }
 
+
 (function init() {
-    console.log(`[XcloudCheat v2.9.3 Fortnite KBM+Controller] Initializing...`);
-    setTimeout(findGameVideoAndInit, 2000);
+    console.log(`[XcloudCheat v3.0 KBM Aimbot] Initializing...`);
+    // Delay initialization to ensure xCloud page is mostly loaded
+    setTimeout(findGameVideoAndInit, 3000);
 })();
