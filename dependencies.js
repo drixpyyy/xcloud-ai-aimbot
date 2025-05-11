@@ -15,7 +15,7 @@ loadScript('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js'
   .then(() => {
     console.log("TensorFlow.js core LOADED.");
     console.log("Loading Coco-SSD model script...");
-    return loadScript('https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@latest/dist/coco-ssd.min.js');
+    return loadScript('https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.2');
   })
   .then(() => {
     console.log("Coco-SSD model script LOADED.");
