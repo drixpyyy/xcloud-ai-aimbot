@@ -29,16 +29,4 @@ Discórdia: https://discord.gg/EmdR3qgn8s
 Certifique-se de que não esteja em tela cheia no xcloud e pressione ctrl + shift + i
 
 basicamente, execute as dependências PRIMEIRO e, em seguida, execute o aimbot de IA e ele deverá funcionar; caso contrário, acesse a discórdia para obter suporte
-Isso também deve funcionar com a geforce, mas nunca testei
-
-
-
-## Configurações(In Brazilian)
-
-Aim Intveral: Altera a velocidade da IA. Recomenda-se 350 por motivos de desempenho, mas se você tiver um bom computador, pode tentar um valor mais baixo.
-
-Emulação de controlador: Necessário para que os movimentos do mouse funcionem; fora isso, é bastante inútil, pois o xcloud bloqueia qualquer forma de javascript que simule movimentos do mouse, exceto extensões com as permissões “Debugger”, e eu já tenho uma que simula movimentos e cliques do mouse sem qualquer emulação de controlador, apenas o chrome bloqueia o que instala as dependências para o cheat
-
-Basicamente, tudo o mais que você deve saber, como velocidade da mira, tamanho do campo de visão etc.
-
-Traduzido com a versão gratuita do tradutor - DeepL.com
+isso também deve funcionar com a geforce agora, mas nunca testei
