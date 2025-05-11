@@ -14,15 +14,15 @@ const config = {
     detection: {
         enabled: true,
         modelType: 'cocossd',
-        confidence: 0.45,
+        confidence: 0.50,
         targetClass: 'person',
         maxDetections: 10,
     },
     game: {
         videoSelector: 'video[aria-label="Game Stream for unknown title"]',
         containerSelector: '#game-stream', // May not be strictly needed for window events
-        aimInterval: 100, // Adjusted for potentially faster KBM response
-        fovRadius: 250,
+        aimInterval: 200, // Adjusted for potentially faster KBM response
+        fovRadius: 150,
         // aimSpeed: 5, // Removed, KBM uses positionSmoothing primarily
         recoilCompensation: true,
         recoilLevel: 4,
@@ -53,13 +53,13 @@ const config = {
     },
     fovCircle: {
         enabled: true,
-        color: 'rgba(255, 0, 0, 0.3)',
+        color: 'rgba(0, 0, 0, 0.8)',
         lineWidth: 1,
     },
     boundingBoxes: {
         enabled: true,
-        color: 'yellow',
-        lineWidth: 2,
+        color: 'black',
+        lineWidth: 1,
     },
     aim: {
         positionSmoothing: true,
@@ -556,25 +556,33 @@ function createGUI() {
     debug.log("GUI Created (KBM Mode)");
 }
 
-async function findGameVideoAndInit() { /* ... Largely Unchanged, but calls new setupAutoCrouchShoot ... */
+async function findGameVideoAndInit() {
     gameVideo = document.querySelector(config.game.videoSelector);
     if (gameVideo && gameVideo.readyState >= 2 && gameVideo.videoWidth > 0 && gameVideo.videoHeight > 0) {
         debug.log(`Game video found: ${gameVideo.videoWidth}x${gameVideo.videoHeight}`);
         try {
             if (!detectionModel) {
-                debug.log("Loading Coco SSD model...");
+                debug.log("Loading Coco SSD model for Fortnite...");
+                // Ensure tf and cocoSsd are available (either from @require or loader)
+                if (typeof tf === 'undefined' || typeof cocoSsd === 'undefined') {
+                    console.error("TensorFlow.js (tf) or CocoSSD (cocoSsd) not loaded. Ensure loader script ran successfully OR @require directives worked.");
+                    alert("Critical libraries not found. Aimbot cannot start. Check console.");
+                    return;
+                }
                 try { await tf.setBackend('webgl'); } catch { debug.warn("WebGL backend failed, using default."); }
                 await tf.ready();
-                detectionModel = await cocoSsd.load();
-                debug.log("Coco SSD model loaded successfully using backend:", tf.getBackend());
+                // --- THIS IS THE KEY CHANGE TO MATCH THE LOADER'S INSTRUCTION FOR FORTNITE ---
+                detectionModel = await cocoSsd.load({ base: 'mobilenet_v2' });
+                // --- END OF KEY CHANGE ---
+                debug.log("Coco SSD model (mobilenet_v2) loaded successfully using backend:", tf.getBackend());
             } else {
                 debug.log("Coco SSD model already loaded.");
             }
-            if (InputSimulator.init()) { // This now initializes KBM simulation
+            if (InputSimulator.init()) {
                 createOverlayCanvas();
                 createCrosshair();
                 createGUI();
-                setupAutoCrouchShoot(); // Renamed/refocused
+                setupAutoCrouchShoot();
                 setupAutoReload();
                 startAimLoop();
             } else {
