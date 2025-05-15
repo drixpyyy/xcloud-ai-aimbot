@@ -18,16 +18,6 @@ Controller emulation: Required for mouse movements to work, other than that its 
 
 basically everything else you should know like aim speed fov size etc
 
+## GPU VERSION(works on integrated gpu also i have to put this here for retards)
 
-
-# Ai AImbot (ChromeOS/Windows/Ios/Android/Xbox Suporte para o Brasil)
-
-Este é um projeto JavaScript que faz o que antes era considerado impossível por um desenvolvedor javascript experiente, também conhecido como proprietário da betterxcloud
-## Setup
-Discórdia: https://discord.gg/EmdR3qgn8s
-
-Certifique-se de que não esteja em tela cheia no xcloud e pressione ctrl + shift + i
-
-basicamente, execute as dependências PRIMEIRO e, em seguida, execute o aimbot de IA e ele deverá funcionar; caso contrário, acesse a discórdia para obter suporte
-isso também deve funcionar com a geforce agora, mas nunca testei
-
+so basically gpu version runs the ai on the gpu which will have better performance but doesnt mean it will completely get rid of lag and there is no possible "javascript fps booster 2025 working method" without making the ai so ass that it barely works
