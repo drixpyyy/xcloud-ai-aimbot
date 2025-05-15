@@ -1,4 +1,4 @@
-// ==XcloudCheat Main Script v3.0.5 (For Manual Dev Tools Injection)==
+// ==XcloudCheat Main Script v3.0.5 (USES GPU INSTEAD OF CPU)==
 // Requires TensorFlow.js and Coco-SSD to be manually loaded BEFORE execution.
 // Paste and run this ENTIRE block as a single command/snippet
 // AFTER libraries tf and cocoSsd are available in the global scope.
