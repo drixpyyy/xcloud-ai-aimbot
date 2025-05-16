@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         XcloudCheat v3.0.1 KBM Aimbot (Fortnite)
+// @name         THIS USES CPU TO RUN THE AI SO PERFORMANCE IS DEPENDENT ON YOUR CPU, fun fact: CPUs are way slower than GPUS
 // @description  Fortnite aimbot for xCloud using KBM simulation with Coco SSD. Features: Continuous AI targeting to ESP center, recoil control, auto-shoot, and GUI.
-// @author       Wesd (KBM integration by AI)
+// @author       wesd
 // @version      3.0.1
 // @match        *://*.xbox.com/play/*
 // @grant        none
