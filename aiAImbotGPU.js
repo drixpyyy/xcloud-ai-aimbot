@@ -1,22 +1,22 @@
-// ==XcloudCheat Main Script v3.1.3 (GPU, Hard Flick, Perf. Considerations)==
+// ==XcloudCheat Main Script v3.1.4 (RUNS ON GPU SO THIS SCRIPTS PERFORMANCE IS DEPENDENT ON YOUR GPU, fun fact: GPUS ARE WAY FASTER THAN CPU)==
 // Requires TensorFlow.js and Coco-SSD to be manually loaded BEFORE execution.
-// Focuses on hard, flicky aiming.
 // Performance on integrated GPUs is challenging. `aimInterval` and `confidence` are key.
+// Removed "Mouse Pos" display from GUI.
 
 const config = {
-    version: '3.1.3',
+    version: '3.1.4',
     detection: {
         enabled: true,
         modelType: 'cocossd',
         modelBase: 'mobilenet_v2', 
-        confidence: 0.35, // KEY PERF: Higher = fewer detections to process = faster JS, but might miss targets.
+        confidence: 0.35, 
         targetClass: 'person',
-        maxDetections: 3, // Slightly reduced. Minimal impact, but fewer boxes if many people.
+        maxDetections: 3, 
     },
     game: {
         videoSelector: 'video[aria-label="Game Stream for unknown title"]',
         containerSelector: '#game-stream',
-        aimInterval: 30,   // KEY PERF: Target interval. Actual interval depends on processing time. Higher = less lag if system can't keep up.
+        aimInterval: 30,   
         fovRadius: 150,
         recoilCompensation: true,
         recoilLevel: 4,
@@ -57,7 +57,7 @@ const config = {
         enabled: true,
         showFPS: true,
         logThrottleMs: 100,
-        logMovement: true, // Set to false to reduce console spam slightly
+        logMovement: true, 
     }
 };
 
@@ -69,8 +69,8 @@ let overlayCanvas = null;
 let overlayCtx = null;
 let bestTarget = null;
 let lastPredictions = [];
-let processingFrame = false; // Prevents overlapping detection calls
-let lastDetectionTimestamp = 0; // For monitoring actual detection frequency
+let processingFrame = false; 
+let lastDetectionTimestamp = 0; 
 
 // --- Utility functions ---
 const utils = {
@@ -113,7 +113,7 @@ const debug = {
             }
         }
     },
-    logMove(...args) { /* ... (unchanged) ... */ 
+    logMove(...args) { 
          if (this.enabled && this.logMovement) {
              let logString = `[XcloudCheat] MOVE |`;
              if (this.showFPS) { logString += ` FPS: ${utils.fps.get()} |`; }
@@ -124,9 +124,9 @@ const debug = {
     warn(...args) { if (this.enabled) { console.warn(`[XcloudCheat] WARN:`, ...args); } }
 };
 
-const InputSimulator = { /* ... (unchanged from v3.1.2) ... */ 
+const InputSimulator = { 
     gameContainer: null,
-    mousePos: { x: window.innerWidth / 2, y: window.innerHeight / 2 },
+    mousePos: { x: window.innerWidth / 2, y: window.innerHeight / 2 }, // Still used internally for target priority
     kbm: {
         lastClientX: window.innerWidth / 2,
         lastClientY: window.innerHeight / 2,
@@ -163,7 +163,7 @@ const InputSimulator = { /* ... (unchanged from v3.1.2) ... */
         if (!eventType) return;
         setTimeout(() => {
             const event = new PointerEvent(eventType, eventProps);
-            window.dispatchEvent(event); // Dispatch to window
+            window.dispatchEvent(event); 
         }, delay);
     },
 
@@ -266,7 +266,8 @@ const InputSimulator = { /* ... (unchanged from v3.1.2) ... */
             this.kbm.lastClientX = targetScreenX - this.recoilOffset.x; 
             this.kbm.lastClientY = targetScreenY + this.recoilOffset.y;
         }
-        this.mousePos = { x: this.kbm.lastClientX, y: this.kbm.lastClientY };
+        // Update internal mousePos (used for 'closest to crosshair' target priority)
+        this.mousePos = { x: this.kbm.lastClientX, y: this.kbm.lastClientY }; 
     },
 
     startShooting() {
@@ -289,11 +290,11 @@ const InputSimulator = { /* ... (unchanged from v3.1.2) ... */
             button: 0, buttons: 0, delay: 0
         });
     },
-}
+};
 
 
 // --- Overlay and Drawing ---
-function createOverlayCanvas() { /* ... (unchanged from v3.1.2) ... */ 
+function createOverlayCanvas() { /* ... (unchanged from v3.1.3) ... */ 
     if (overlayCanvas) return;
     overlayCanvas = document.createElement('canvas');
     overlayCanvas.id = 'xcloud-cheat-overlay';
@@ -321,8 +322,7 @@ function createOverlayCanvas() { /* ... (unchanged from v3.1.2) ... */
     else { window.addEventListener('resize', updateCanvasSizeAndPosition); }
     debug.log('Overlay canvas created');
 }
-
-function drawOverlay(predictions = []) { /* ... (unchanged from v3.1.2) ... */ 
+function drawOverlay(predictions = []) { /* ... (unchanged from v3.1.3) ... */ 
     if (!overlayCtx || !gameVideo) return;
     overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
     const videoRect = gameVideo.getBoundingClientRect();
@@ -376,7 +376,7 @@ function drawOverlay(predictions = []) { /* ... (unchanged from v3.1.2) ... */
                     const aimScreenY = videoDisplayTop + (aimY_video / gameVideo.videoHeight) * videoDisplayHeight;
                     
                     overlayCtx.beginPath(); 
-                    overlayCtx.moveTo(InputSimulator.mousePos.x, InputSimulator.mousePos.y);
+                    overlayCtx.moveTo(InputSimulator.mousePos.x, InputSimulator.mousePos.y); // From current mouse (crosshair)
                     overlayCtx.lineTo(aimScreenX, aimScreenY); 
                     overlayCtx.strokeStyle = 'red'; 
                     overlayCtx.lineWidth = 2;
@@ -391,8 +391,7 @@ function drawOverlay(predictions = []) { /* ... (unchanged from v3.1.2) ... */
         });
     }
  }
-
-function createCrosshair() { /* ... (unchanged from v3.1.2) ... */ 
+function createCrosshair() { /* ... (unchanged from v3.1.3) ... */ 
     if (!config.crosshair.enabled || document.getElementById('xcloud-crosshair')) return;
     const c = document.createElement('canvas'); c.id = 'xcloud-crosshair';
     const vvp = window.visualViewport;
@@ -432,7 +431,7 @@ function createGUI() {
     if (document.getElementById('xcloudcheat-gui')) return;
     const gui = document.createElement('div');
     gui.id = 'xcloudcheat-gui';
-    gui.style.cssText = ` /* ... (same as v3.1.2) ... */ 
+    gui.style.cssText = ` /* ... (same as v3.1.3) ... */ 
         position: fixed; top: 60px; right: 30px; width: 400px; min-width: 320px; max-width: 460px;
         background: linear-gradient(120deg,#17171d 60%,#232340 100%);
         color: #fafaff; padding: 22px 20px 16px 20px; border-radius: 18px;
@@ -444,7 +443,7 @@ function createGUI() {
     `;
      gui.innerHTML = `
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-          <h2 style="margin:0;color:#6df;font-size:1.3em;">Xcloud Aimbot <span style="font-size:0.8em;font-weight:400;opacity:.6;">v${config.version} (Perf. Focus)</span></h2>
+          <h2 style="margin:0;color:#6df;font-size:1.3em;">Xcloud Aimbot <span style="font-size:0.8em;font-weight:400;opacity:.6;">v${config.version}</span></h2>
           <button id="xcloudcheat-close" style="background:none;border:none;color:#faa;font-size:24px;font-weight:bold;cursor:pointer;padding:0 8px;line-height:1;margin-top:-5px;">×</button>
         </div>
         <div style="margin-bottom: 10px;">
@@ -505,7 +504,7 @@ function createGUI() {
         <div style="font-size:1em;line-height:1.6;background:#171b2c;border-radius:8px;padding:8px 12px;margin-bottom:10px; word-break: break-word;">
              <b>AI Backend:</b> <span id="backend-status" style="color:#ff0;">Checking...</span> <br>
              <b>Model:</b> <span id="model-status" style="color:#ff0;">CocoSSD (MobileNetV2)</span> <br>
-             <b>Mouse Pos:</b> <span id="script-mouse-pos" style="color:#fff;">N/A</span><br>
+             <!-- Mouse Pos display removed -->
              <b style="color:#fa5">Tips for Less Lag:</b><br>
                - Increase 'Aim Interval'.<br>
                - Increase 'Confidence'.<br>
@@ -519,8 +518,7 @@ function createGUI() {
     const statusSpan = document.getElementById('xcloudcheat-status');
     const backendSpan = document.getElementById('backend-status');
     const modelInfoSpan = document.getElementById('model-status');
-    const mousePosSpan = document.getElementById('script-mouse-pos');
-    const updateMousePosDisplay = () => { if (mousePosSpan) mousePosSpan.textContent = `${InputSimulator.mousePos.x.toFixed(0)}, ${InputSimulator.mousePos.y.toFixed(0)}`; };
+    // mousePosSpan and updateMousePosDisplay removed
 
     document.getElementById('detection-enabled').onchange = (e) => {
         config.detection.enabled = e.target.checked;
@@ -529,7 +527,6 @@ function createGUI() {
         if (!config.detection.enabled && InputSimulator.isShooting) InputSimulator.stopShooting();
         debug.log(`Aimbot ${config.detection.enabled ? 'Enabled' : 'Disabled'}`);
     };
-    // ... (other event handlers mostly same as v3.1.2)
     document.getElementById('auto-shoot').onchange = (e) => {
         config.game.autoShoot = e.target.checked;
         if (!config.game.autoShoot && InputSimulator.isShooting) InputSimulator.stopShooting();
@@ -556,7 +553,7 @@ function createGUI() {
     document.getElementById('fov-radius').oninput = (e) => {
         config.game.fovRadius = parseInt(e.target.value, 10);
         document.getElementById('fov-val').textContent = config.game.fovRadius;
-        drawOverlay(lastPredictions || []); // Redraw FOV immediately
+        drawOverlay(lastPredictions || []); 
     };
     document.getElementById('target-priority').onchange = (e) => config.aim.targetPriority = e.target.value;
     document.getElementById('aim-point').onchange = (e) => config.aim.aimPoint = e.target.value;
@@ -566,13 +563,12 @@ function createGUI() {
     statusSpan.style.color = config.detection.enabled ? '#5f5' : '#fa5';
     backendSpan.textContent = 'Checking...'; backendSpan.style.color = '#ff0';
     if (modelInfoSpan) modelInfoSpan.textContent = `CocoSSD (${config.detection.modelBase})`;
-    updateMousePosDisplay();
-    setInterval(updateMousePosDisplay, 100);
+    // No mousePosSpan update needed
     debug.log("GUI Created");
 }
 
 
-async function loadDetectionModel() { /* ... (unchanged from v3.1.2) ... */ 
+async function loadDetectionModel() { /* ... (unchanged from v3.1.3) ... */ 
     const modelInfoSpan = document.getElementById('model-status');
     const backendSpan = document.getElementById('backend-status');
     if (!detectionModel) {
@@ -609,7 +605,7 @@ async function loadDetectionModel() { /* ... (unchanged from v3.1.2) ... */
     }
 }
 
-async function findGameVideoAndInit() { /* ... (unchanged from v3.1.2) ... */
+async function findGameVideoAndInit() { /* ... (unchanged from v3.1.3) ... */
     const statusSpan = document.getElementById('xcloudcheat-status');
     const backendSpan = document.getElementById('backend-status');
     const modelInfoSpan = document.getElementById('model-status');
@@ -659,11 +655,11 @@ async function findGameVideoAndInit() { /* ... (unchanged from v3.1.2) ... */
     }
  }
 
-function startAimLoop() {
+function startAimLoop() { /* ... (unchanged from v3.1.3) ... */ 
     debug.log(`Starting main aim loop. Target interval: ${config.game.aimInterval}ms.`);
-    let lastProcessingFinishedTime = 0; // Tracks when the previous processing cycle *finished*
+    let lastProcessingFinishedTime = 0; 
 
-    function loop() { // Renamed from loop(currentTime) as currentTime wasn't used
+    function loop() { 
         requestAnimationFrame(loop);
         const now = performance.now();
         utils.fps.update();
@@ -681,13 +677,11 @@ function startAimLoop() {
             return;
         }
 
-        // Check if enough time has passed since the *end* of the last processing cycle
         if (now - lastProcessingFinishedTime >= config.game.aimInterval) {
-            // No need to update lastProcessingFinishedTime here, do it after async operation
             (async () => {
                  processingFrame = true;
                  const detectionStartTime = performance.now();
-                 lastDetectionTimestamp = detectionStartTime; // For logging actual interval
+                 lastDetectionTimestamp = detectionStartTime; 
                  let predictions = [];
                  try {
                      if (gameVideo.readyState >= 2 && gameVideo.videoWidth > 0 && gameVideo.videoHeight > 0) {
@@ -702,16 +696,11 @@ function startAimLoop() {
                      if (InputSimulator.isShooting) InputSimulator.stopShooting();
                      currentTarget = null; bestTarget = null; lastPredictions = [];
                  } finally {
-                     lastProcessingFinishedTime = performance.now(); // Update after processing finishes
+                     lastProcessingFinishedTime = performance.now(); 
                      processingFrame = false;
-                    //  const cycleTime = lastProcessingFinishedTime - detectionStartTime;
-                    //  if(cycleTime > config.game.aimInterval + 10) { // Log if cycle significantly exceeds target
-                    //      debug.warn(`Detection cycle took ${cycleTime.toFixed(0)}ms (Target: ${config.game.aimInterval}ms)`);
-                    //  }
                  }
             })();
         }
-        // Recoil decay for when not shooting and no target
         if (!currentTarget && (InputSimulator.recoilOffset.x !== 0 || InputSimulator.recoilOffset.y !== 0) && !InputSimulator.isShooting) {
              const recoilPattern = config.game.recoilPatterns[config.game.recoilLevel];
              if (recoilPattern) {
@@ -723,10 +712,10 @@ function startAimLoop() {
              }
         }
     }
-    loop(); // Start the requestAnimationFrame loop
+    loop();
 }
 
-function processPredictions(targets) { /* ... (unchanged from v3.1.2) ... */
+function processPredictions(targets) { /* ... (unchanged from v3.1.3) ... */
     const videoRect = gameVideo.getBoundingClientRect();
     const vvp = window.visualViewport;
     const screenCenterX = vvp ? vvp.width / 2 + vvp.pageLeft : window.innerWidth / 2;
@@ -779,12 +768,6 @@ function processPredictions(targets) { /* ... (unchanged from v3.1.2) ... */
         return;
     }
     
-    // if (!currentTarget || currentTarget.bbox[0] !== potentialTarget.bbox[0] || currentTarget.bbox[1] !== potentialTarget.bbox[1]) {
-    //     const targetCenterX_s = videoDisplayLeft + ((potentialTarget.bbox[0] + potentialTarget.bbox[2]/2) / gameVideo.videoWidth) * videoDisplayWidth;
-    //     const targetCenterY_s = videoDisplayTop + ((potentialTarget.bbox[1] + potentialTarget.bbox[3]/2) / gameVideo.videoHeight) * videoDisplayHeight;
-    //     const distToSCLog = Math.hypot(targetCenterX_s - screenCenterX, targetCenterY_s - screenCenterY);
-    //     debug.log(`Updating lock: ${potentialTarget.class} (${(potentialTarget.score*100).toFixed(1)}%), PriorityDist: ${minScore.toFixed(0)}px`);
-    // }
     currentTarget = potentialTarget; bestTarget = currentTarget;
 
     const bboxX_screen = videoDisplayLeft + (currentTarget.bbox[0] / gameVideo.videoWidth) * videoDisplayWidth;
@@ -806,7 +789,7 @@ function processPredictions(targets) { /* ... (unchanged from v3.1.2) ... */
 
 // --- Initialization ---
 (function init() {
-    console.log(`[XcloudCheat v${config.version} (Perf. Focus Mode)] Initializing...`);
+    console.log(`[XcloudCheat v${config.version}] Initializing...`);
     createGUI(); 
     setTimeout(findGameVideoAndInit, 1000); 
 })();
