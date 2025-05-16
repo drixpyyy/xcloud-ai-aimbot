@@ -1,4 +1,4 @@
-// ==XcloudCheat Main Script v3.1.4 (RUNS ON GPU SO THIS SCRIPTS PERFORMANCE IS DEPENDENT ON YOUR GPU, fun fact: GPUS ARE WAY FASTER THAN CPU)==
+// (RUNS THE AI ON GPU SO THIS SCRIPTS PERFORMANCE IS DEPENDENT ON YOUR GPU, fun fact: GPUS ARE WAY FASTER THAN CPU)==
 // Requires TensorFlow.js and Coco-SSD to be manually loaded BEFORE execution.
 // Performance on integrated GPUs is challenging. `aimInterval` and `confidence` are key.
 
