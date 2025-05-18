@@ -8,7 +8,7 @@ make sure ur not on fullscreen on xcloud and press ctrl + shift + i and go to th
 copy both of the dependencies and any of the codes you want like gpu ai aimbot or cpu ai aimbot, then when you try to paste it in it might not work cause you need to type "allow pasting" or something like that, dw when u do it will tell you want u need to type to allow pasting, type that in then paste in the code based on the order below and it should work
 
 basically run dependencies FIRST then run the ai aimbot and it should work if not then go to the discord for support
-also this should work for geforce now but i never tested it
+also this should work for geforce now but i never tested it, EVERY TIME you refresh you need to paste back in the dependencies then the ai aimbot for it to work
 
 
 ## Settings
