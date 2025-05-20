@@ -25,3 +25,9 @@ so basically gpu version runs the ai on the gpu which will have better performan
 ## Best models
 
 best model has 2x better performance and aiming and hits headshots only but still needs some working and it most likely works for other games than just fortnite and works super well
+
+
+## GFN MODELS
+
+since i work more on xbox cloud gaming models cause gfn crashes for me i got some random sexy godzilla dude to help me with gfn but thats like a 1 time thing, even tho i got gfns html its gonna be to complicated with him since he also is kinda dumb to get any
+src from gfn so some stuff might not work idk but it should load perfectly just test it out
