@@ -20,3 +20,8 @@ basically everything else you should know like aim speed fov size etc
 ## GPU VERSION(works on integrated gpu also i have to put this here for retards)
 
 so basically gpu version runs the ai on the gpu which will have better performance but doesnt mean it will completely get rid of lag and there is no possible "javascript fps booster 2025 working method" without making the ai so ass that it barely works
+
+
+## Best models
+
+best model has 2x better performance and aiming and hits headshots only but still needs some working and it most likely works for other games than just fortnite and works super well
