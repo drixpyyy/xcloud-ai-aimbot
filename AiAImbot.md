@@ -19,7 +19,7 @@ basically everything else you should know like aim speed fov size etc
 
 ## GPU VERSION(works on integrated gpu also i have to put this here for retards)
 
-so basically gpu version runs the ai on the gpu which will have better performance but doesnt mean it will completely get rid of lag and there is no possible "javascript fps booster 2025 working method" without making the ai so ass that it barely works
+so basically gpu version runs the ai on the gpu which will have better performance but doesnt mean it will completely get rid of lag and there is no possible "javascript fps booster 2025 working method edit: just proven to be possible with the (Best) models" without making the ai so ass that it barely works
 
 
 ## Best models
