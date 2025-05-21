@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         Fortnite xCloud Precision Aimbot (MoveNet) - Aim-Key Activated Detection
-// @description  AI Detection and visuals only run when aim key is held. Manual anti-recoil.
-// @author       Improved Version / You
+// @name         Fortnite xCloud Precision Aimbot (MoveNet) - ud
+// @description  AI-powered aimbot for Fortnite on xCloud with MoveNet pose detection.
+// @author       Improved Version / Community
 // @version      4.2.18
 // @match        *://*.xbox.com/play/*
 // @grant        none
@@ -15,58 +15,208 @@
 (function() {
     'use strict';
 
+    // === Configuration Section ===
+    // This section contains all customizable settings for the aimbot.
+    // Each option is documented with its purpose, valid values, and how to adjust it.
+
     const config = {
+        // Detection settings for MoveNet AI model
         detection: {
-            enabled: true, modelType: poseDetection.SupportedModels.MoveNet,
-            detectorConfig: { modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING, enableSmoothing: true, minPoseScore: 0.25, },
-            keypointConfidence: 0.20, maxDetections: 5, processingInterval: 30, skipFrames: 1, useWebGL2: true,
-            ignoreSelfRegion: { enabled: true, xPercent: 0.00, yPercent: 0.27, widthPercent: 0.37, heightPercent: 0.74 }
+            enabled: true, // Set to false to disable AI detection (aimbot visuals only)
+            modelType: poseDetection.SupportedModels.MoveNet, // Do not change unless using a different model
+            detectorConfig: {
+                modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING, // Model type: SINGLEPOSE_LIGHTNING (fast) or SINGLEPOSE_THUNDER (accurate)
+                enableSmoothing: true, // Smooths pose detection for less jitter (true/false)
+                minPoseScore: 0.25 // Minimum confidence score for a detected pose (0.0 to 1.0, lower = more detections)
+            },
+            keypointConfidence: 0.20, // Minimum confidence for individual keypoints (0.0 to 1.0, lower = more points detected)
+            maxDetections: 5, // Maximum number of players to detect (1 to 10, higher = more CPU usage)
+            processingInterval: 30, // Minimum time (ms) between detection runs (10 to 100, lower = faster but more CPU)
+            skipFrames: 1, // Number of frames to skip between detections (0 to 5, 0 = no skip, higher = less CPU usage)
+            // Example: To reduce CPU usage, increase skipFrames to 2 or 3
+            useWebGL2: true, // Use WebGL2 for faster processing (true/false, false may improve compatibility)
+            ignoreSelfRegion: {
+                enabled: true, // Ignore the player's own character in detection (true/false)
+                xPercent: 0.00, // X position of ignore region (% of video width, 0.0 to 1.0)
+                yPercent: 0.27, // Y position of ignore region (% of video height, 0.0 to 1.0)
+                widthPercent: 0.37, // Width of ignore region (% of video width, 0.0 to 1.0)
+                heightPercent: 0.74 // Height of ignore region (% of video height, 0.0 to 1.0)
+                // Adjust these to cover your character's position on screen
+            }
         },
+        // Game interaction settings
         game: {
-            videoSelector: 'video[aria-label="Game Stream for unknown title"]', containerSelector: '#game-stream',
-            recoilCompensation: true, recoilLevel: 1,
-            recoilPatterns: {1:{vertical:0.1,horizontal:0.02,recoverySpeed:0.25},2:{vertical:0.2,horizontal:0.04,recoverySpeed:0.20},3:{vertical:0.3,horizontal:0.06,recoverySpeed:0.15},4:{vertical:0.5,horizontal:0.1,recoverySpeed:0.12},5:{vertical:0.7,horizontal:0.15,recoverySpeed:0.10}},
-            autoShoot: true, triggerOptions: {delayBeforeShoot:10,burstMode:false,burstCount:3,burstInterval:100},
-            controlOptions: {crouchOnShoot:false,crouchKey:'KeyC',reloadKey:'KeyR',weaponKeys:['Digit1','Digit2','Digit3','Digit4','Digit5']}
+            videoSelector: 'video[aria-label="Game Stream for unknown title"]', // HTML selector for game video (do not change unless xCloud changes)
+            containerSelector: '#game-stream', // HTML selector for game container (do not change unless xCloud changes)
+            recoilCompensation: true, // Enable manual recoil compensation (true/false)
+            recoilLevel: 1, // Recoil strength level (1 to 5, higher = stronger compensation)
+            // Example: Set recoilLevel to 3 for weapons with moderate recoil
+            recoilPatterns: {
+                1: { vertical: 0.1, horizontal: 0.02, recoverySpeed: 0.25 },
+                2: { vertical: 0.2, horizontal: 0.04, recoverySpeed: 0.20 },
+                3: { vertical: 0.3, horizontal: 0.06, recoverySpeed: 0.15 },
+                4: { vertical: 0.5, horizontal: 0.1, recoverySpeed: 0.12 },
+                5: { vertical: 0.7, horizontal: 0.15, recoverySpeed: 0.10 }
+                // Adjust vertical/horizontal for recoil strength, recoverySpeed for how fast it resets (0.0 to 1.0)
+            },
+            autoShoot: true, // Automatically shoot when target is in range (true/false)
+            triggerOptions: {
+                delayBeforeShoot: 10, // Delay (ms) before auto-shooting (0 to 100)
+                burstMode: false, // Enable burst fire mode (true/false)
+                burstCount: 3, // Number of shots per burst (1 to 10)
+                burstInterval: 100 // Time (ms) between burst shots (50 to 500)
+            },
+            controlOptions: {
+                crouchOnShoot: false, // Crouch when shooting (true/false)
+                crouchKey: 'KeyC', // Key for crouching (e.g., 'KeyC' for C key, see https://keycode.info)
+                reloadKey: 'KeyR', // Key for reloading (e.g., 'KeyR' for R key)
+                weaponKeys: ['Digit1', 'Digit2', 'Digit3', 'Digit4', 'Digit5'] // Keys for weapon slots (e.g., 'Digit1' for 1 key)
+                // Example: Change crouchKey to 'KeyX' to use X for crouching
+            }
         },
+        // Aiming settings
         aim: {
-            activationKey: 'KeyE',
-            fovRadius: 450, instantLock: true,
-            aimPoint: "head", headOffset: 0.15, bodyOffset: 0.4, targetPriority: "center", targetSwitchCooldown: 250, triggerThreshold: 0.7,
-            smoothing: { enabled: false, amount: 0.15, extrapolation: false },
-            snapOptions: {strength:1,threshold:0.9,diminishingRange:false}
+            activationKey: 'KeyE', // Key to activate aimbot (e.g., 'KeyE' for E key, 'KeyQ' for Q, etc.)
+            // Example: Change to 'KeyQ' to use Q key for aiming
+            fovRadius: 450, // Field of view radius (pixels) for target detection (100 to 1000, larger = wider range)
+            instantLock: true, // Instantly lock onto target (true/false, false = smoother but slower)
+            aimPoint: "torso_center", // Target body part: "torso_center", "head", "neck", or "center"
+            headOffset: 0.15, // Vertical offset for head aiming (% of bounding box height, 0.0 to 1.0)
+            bodyOffset: 0.4, // Vertical offset for torso/center aiming (% of bounding box height, 0.0 to 1.0)
+            targetPriority: "center", // Target selection priority: "center" (screen center), "crosshair" (mouse), "distance", or "size"
+            targetSwitchCooldown: 250, // Time (ms) before switching targets (100 to 1000, higher = less frequent switches)
+            triggerThreshold: 0.7, // Auto-shoot distance threshold (% of fovRadius, 0.0 to 1.0, lower = closer range)
+            smoothing: {
+                enabled: false, // Smooth aim movement (true/false)
+                amount: 0.15, // Smoothing strength (0.0 to 1.0, higher = smoother but slower)
+                extrapolation: false // Predict target movement (true/false, experimental)
+            },
+            snapOptions: {
+                strength: 1, // Snap strength (0.0 to 1.0, higher = faster snap)
+                threshold: 0.9, // Snap activation threshold (0.0 to 1.0, lower = easier snap)
+                diminishingRange: false // Reduce snap strength at edges (true/false)
+            }
         },
+        // Visual overlay settings
         visual: {
-            showDebugInfo: true, crosshair: {enabled:true,style:'dot',color:'lime',size:3,centerOnGameScreen:true}, // Main crosshair always on
-            boundingBoxes: { enabled: false },
-            keypoints: {enabled:true,color:'cyan',radius:3 }, // Only show when aiming
-            skeleton: { enabled: true, color: 'rgba(255, 0, 255, 0.9)', lineWidth: 2 }, // Only show when aiming
-            targetLock: {enabled:true,color:'yellow',style:'corners'}, // Only show when aiming
-            fovCircle: {enabled:true,color:'rgba(255,255,255,0.3)',lineWidth:1,centerOnGameScreen:true, showOnlyWhenAiming: true}, // Option to show only when aiming
-            performanceMetrics: {enabled:true,position:'top-left'},
-            drawIgnoreRegion: { enabled: true, color: 'rgba(50, 50, 50, 0.4)', lineWidth: 1, showOnlyWhenAiming: true }, // Option to show only when aiming
-            showRecoilTunerGUI: false
+            showDebugInfo: true, // Show debug info on screen (true/false)
+            crosshair: {
+                enabled: true, // Show crosshair (true/false)
+                style: 'dot', // Crosshair style: 'dot', 'cross', or 'circle'
+                color: 'lime', // Crosshair color (e.g., 'lime', 'red', '#FF0000')
+                size: 3, // Crosshair size (pixels, 1 to 10)
+                centerOnGameScreen: true // Center crosshair on game screen (true) or mouse (false)
+            },
+            boundingBoxes: { enabled: false }, // Show bounding boxes around targets (true/false)
+            keypoints: {
+                enabled: true, // Show keypoint dots on targets (true/false)
+                color: 'cyan', // Keypoint color
+                radius: 3 // Keypoint size (pixels, 1 to 10)
+            },
+            skeleton: {
+                enabled: true, // Show skeleton lines on targets (true/false)
+                color: 'rgba(255, 0, 255, 0.9)', // Skeleton color
+                lineWidth: 2 // Skeleton line thickness (pixels, 1 to 5)
+            },
+            targetLock: {
+                enabled: true, // Show lock-on indicator (true/false)
+                color: 'yellow', // Indicator color
+                style: 'corners' // Indicator style: 'corners', 'full', or 'crosshair'
+            },
+            fovCircle: {
+                enabled: true, // Show FOV circle (true/false)
+                color: 'rgba(255,255,255,0.3)', // Circle color
+                lineWidth: 1, // Circle thickness (pixels, 1 to 5)
+                centerOnGameScreen: true, // Center on game screen (true) or mouse (false)
+                showOnlyWhenAiming: true // Show only when aim key is held (true/false)
+            },
+            performanceMetrics: {
+                enabled: true, // Show FPS and detection time (true/false)
+                position: 'top-left' // Position: 'top-left', 'top-right', 'bottom-left', 'bottom-right'
+            },
+            drawIgnoreRegion: {
+                enabled: true, // Show ignore region rectangle (true/false)
+                color: 'rgba(50, 50, 50, 0.4)', // Region color
+                lineWidth: 1, // Border thickness (pixels, 0 to 5, 0 = no border)
+                showOnlyWhenAiming: true // Show only when aim key is held (true/false)
+            },
+            showRecoilTunerGUI: false // Show on-screen recoil tuning GUI (true/false)
         }
     };
-    config.version = '4.2.18';
+    config.version = '4.2.18'; // Script version (do not change)
 
-    const tfState = { backend: 'webgl', flags: { WEBGL_VERSION: 2, WEBGL_RENDER_FLOAT32_ENABLED: true } };
-    const state = {
-        gameVideo: null, detectionModel: null, modelLoaded: false, currentTarget: null, lastTargetSwitch: 0, frameCount: 0, lastDetectionTime: 0,
-        performance: { fps: 0, framesThisSecond: 0, lastFpsUpdate: 0, detectionTime: 0, avgDetectionTime: 0, detectionTimeHistory: [] },
-        ui: { overlayCanvas: null, overlayCtx: null, offscreenCanvas: null, offscreenCtx: null },
-        input: { lastMouseX: window.innerWidth / 2, lastMouseY: window.innerHeight / 2, leftButtonDown: false, rightButtonDown: false, activeKeys: new Set() },
-        recoilState: { active: false, offsetX: 0, offsetY: 0, shotsFired: 0, lastShotTime: 0, lastLeftButtonState: false },
-        isShooting: false,
-        currentWeapon: 0
+    // === ASCII Art Separator ===
+    // This visually separates configuration from debugging for clarity
+    /*
+       _____ _______ _______
+      |  __ \__   __|__   __|
+      | |__) | | |     | |
+      |  _  /  | |     | |
+      | | \ \  | |     | |
+      |_|  \_\ |_|     |_|
+
+      Configuration above, Debugging below
+    */
+
+    // === Debugging and State Management ===
+    // This section handles internal state and logging. Modify only if you know what you're doing.
+
+    const tfState = {
+        backend: 'webgl', // TensorFlow backend (do not change)
+        flags: { WEBGL_VERSION: 2, WEBGL_RENDER_FLOAT32_ENABLED: true } // WebGL settings
     };
+
+    const state = {
+        gameVideo: null, // Game video element
+        detectionModel: null, // MoveNet model
+        modelLoaded: false, // Model load status
+        currentTarget: null, // Current aim target
+        lastTargetSwitch: 0, // Time of last target switch
+        frameCount: 0, // Frame counter
+        lastDetectionTime: 0, // Last detection timestamp
+        performance: {
+            fps: 0, // Current FPS
+            framesThisSecond: 0, // Frames in current second
+            lastFpsUpdate: 0, // Last FPS update time
+            detectionTime: 0, // Last detection duration
+            avgDetectionTime: 0, // Average detection duration
+            detectionTimeHistory: [] // Detection time history
+        },
+        ui: {
+            overlayCanvas: null, // Overlay canvas
+            overlayCtx: null, // Overlay context
+            offscreenCanvas: null, // Offscreen canvas for ignore region
+            offscreenCtx: null // Offscreen context
+        },
+        input: {
+            lastMouseX: window.innerWidth / 2, // Last mouse X position
+            lastMouseY: window.innerHeight / 2, // Last mouse Y position
+            leftButtonDown: false, // Left mouse button state
+            rightButtonDown: false, // Right mouse button state
+            activeKeys: new Set() // Active keys
+        },
+        recoilState: {
+            active: false, // Recoil compensation active
+            offsetX: 0, // Recoil X offset
+            offsetY: 0, // Recoil Y offset
+            shotsFired: 0, // Shots fired in current burst
+            lastShotTime: 0, // Last shot timestamp
+            lastLeftButtonState: false // Last left button state
+        },
+        isShooting: false, // Shooting status
+        currentWeapon: 0 // Current weapon slot
+    };
+
     const debug = {
         log: (...args) => console.log(`[AimbotV${config.version}-MoveNet]`, ...args),
         warn: (...args) => console.warn(`[AimbotV${config.version}-MoveNet]`, ...args),
         error: (...args) => console.error(`[AimbotV${config.version}-MoveNet]`, ...args)
     };
 
-    // Define showNotification as a function declaration to ensure proper scoping
+    // === Utility Functions ===
+    // These functions handle notifications, TensorFlow setup, and model loading.
+
+    // Displays on-screen notifications
     function showNotification(message, type = 'info', duration = 3000) {
         const n = document.createElement('div');
         n.style.cssText = `position:fixed;top:20px;left:50%;transform:translateX(-50%);padding:10px 20px;border-radius:5px;color:white;z-index:1000000;font-family:sans-serif;font-size:16px;box-shadow:0 2px 10px rgba(0,0,0,0.2);background-color:${type === 'error' ? 'rgba(255,0,0,0.8)' : type === 'warning' ? 'rgba(255,165,0,0.8)' : 'rgba(0,0,0,0.7)'};`;
@@ -75,6 +225,7 @@
         setTimeout(() => n.remove(), duration);
     }
 
+    // Sets up TensorFlow.js
     async function setupTensorFlow() {
         try {
             debug.log("Configuring TF.js...");
@@ -95,6 +246,7 @@
         }
     }
 
+    // Loads the MoveNet model
     async function loadDetectionModel() {
         debug.log("Loading MoveNet model...");
         try {
@@ -116,6 +268,10 @@
         }
     }
 
+    // === Detection and Targeting Functions ===
+    // These functions handle player detection and aim target calculation.
+
+    // Calculates bounding box from keypoints
     function calculateBoundingBoxFromKeypoints(kps) {
         if (!kps || kps.length === 0) return null;
         let mX = Infinity, mY = Infinity, mAX = -Infinity, mAY = -Infinity, vK = 0;
@@ -133,6 +289,7 @@
         return { x: Math.max(0, mX - pX), y: Math.max(0, mY - pY), width: mAX - mX + 2 * pX, height: mAY - mY + 2 * pY, validKeypoints: vK };
     }
 
+    // Calculates aim target position
     function calculateAimTarget(pred, vRect) {
         const [vBx, vBy, vBw, vBh] = pred.bbox;
         const sBx = vRect.left + vBx / state.gameVideo.videoWidth * vRect.width;
@@ -185,6 +342,7 @@
         return { x: tX, y: tY, width: sBw, height: sBh, bboxRaw: pred.bbox, keypoints: pred.keypoints };
     }
 
+    // Finds the best target based on priority
     function findBestTarget(predictions) {
         if (!predictions || predictions.length === 0 || !state.gameVideo) return null;
         const videoRect = state.gameVideo.getBoundingClientRect();
@@ -230,6 +388,9 @@
         });
         return bestTarget;
     }
+
+    // === Input Controller ===
+    // Handles mouse and keyboard input simulation.
 
     const InputController = {
         init() {
@@ -352,6 +513,9 @@
             }
         }
     };
+
+    // === Visual Rendering Functions ===
+    // These functions handle the overlay canvas and visual elements.
 
     function createOverlayCanvas() {
         if (state.ui.overlayCanvas) return;
@@ -635,6 +799,9 @@
         if (config.visual.showDebugInfo) drawDebugInfo();
     }
 
+    // === Recoil and Aiming Logic ===
+    // Handles recoil compensation and aiming mechanics.
+
     function applyRecoilCompensation() {
         if (!config.game.recoilCompensation) {
             if (state.recoilState.offsetX !== 0 || state.recoilState.offsetY !== 0) {
@@ -802,6 +969,9 @@
             return [];
         }
     }
+
+    // === GUI and Initialization ===
+    // Handles the recoil tuning GUI and aimbot startup.
 
     function createRecoilTuningGUI() {
         if (!config.visual.showRecoilTunerGUI) return;
