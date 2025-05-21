@@ -78,7 +78,7 @@
         aim: {
             activationKey: 'KeyE', // Key to activate aimbot (e.g., 'KeyE' for E key, 'KeyQ' for Q, etc.)
             // Example: Change to 'KeyQ' to use Q key for aiming
-            fovRadius: 450, // Field of view radius (pixels) for target detection (100 to 1000, larger = wider range)
+            fovRadius: 250, // Field of view radius (pixels) for target detection (100 to 1000, larger = wider range)
             instantLock: true, // Instantly lock onto target (true/false, false = smoother but slower)
             aimPoint: "torso_center", // Target body part: "torso_center", "head", "neck", or "center"
             headOffset: 0.15, // Vertical offset for head aiming (% of bounding box height, 0.0 to 1.0)
