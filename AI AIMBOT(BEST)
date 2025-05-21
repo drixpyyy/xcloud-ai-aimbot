@@ -1,6 +1,6 @@
 // ==UserScript==
-// @name         Fortnite xCloud Precision Aimbot (MoveNet) - Public Ready
-// @description  High-performance aimbot for Fortnite on xCloud using MoveNet. Tunable self-detection, skeleton ESP.
+// @name         Fortnite xCloud Precision Aimbot (MoveNet) - Manual Anti-Recoil
+// @description  Aimbot with pixel occlusion, instant lock, skeleton ESP, and anti-recoil for manual shooting.
 // @author       Improved Version / You
 // @version      4.2.17
 // @match        *://*.xbox.com/play/*
@@ -15,177 +15,61 @@
 (function() {
     'use strict';
 
-    // ================================================================================================================================
-    // === Configuration Settings - Adjust these values to fine-tune the aimbot's behavior and performance. ===
-    // ================================================================================================================================
     const config = {
         detection: {
-            enabled: true,        // Master switch for AI-based detection. If false, only basic visual aids (crosshair, FOV circle) will work.
-            modelType: poseDetection.SupportedModels.MoveNet, // AI model for pose detection. MoveNet is recommended for its balance of speed and accuracy.
-            detectorConfig: {
-                // Type of MoveNet model.
-                // - SINGLEPOSE_LIGHTNING: Fastest, good for lower-end hardware.
-                // - SINGLEPOSE_THUNDER: More accurate but significantly slower, requires better hardware.
-                modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING,
-                enableSmoothing: true, // Smooths out keypoint data across frames, reducing visual jitter of skeleton/keypoints.
-                minPoseScore: 0.25,    // Minimum confidence score (0.0 to 1.0) for an entire detected pose to be considered valid.
-                                       // Higher values = fewer, but more reliable detections. Lower values = more detections, potentially including false positives.
-            },
-            keypointConfidence: 0.20, // Minimum confidence score (0.0 to 1.0) for individual keypoints (e.g., nose, eyes)
-                                      // to be used for bounding box calculation, skeleton drawing, and specific aim points.
-            maxDetections: 5,        // Maximum number of poses (people) the AI will attempt to process from a single frame.
-            processingInterval: 30,  // Milliseconds (ms) delay *between* detection runs.
-                                     // - Lower (e.g., 10-20ms): More responsive, AI reacts faster. Higher CPU/GPU load, can cause lag.
-                                     // - Higher (e.g., 50-100ms): Less responsive, AI reacts slower. Lower CPU/GPU load, better game FPS.
-                                     //   A value of 30-50ms is often a good balance.
-            skipFrames: 1,           // Number of video frames to skip *between* detection attempts.
-                                     // - 0: Process every frame (highest accuracy, highest load).
-                                     // - 1: Process every other frame (good balance: e.g., if game is 60FPS, AI processes at 30FPS).
-                                     // - 2: Process every third frame (reduces load further).
-                                     // Higher values reduce performance impact but make AI tracking less smooth/responsive to fast movements.
-            useWebGL2: true,         // Attempt to use WebGL2 for TensorFlow.js. Generally faster if supported by browser/GPU.
-            ignoreSelfRegion: {      // Settings for the pixel occlusion area to prevent the AI from detecting your own character.
-                enabled: true,       // Set to 'true' to enable this feature. Highly recommended for third-person games.
-                // These percentages define the occlusion box relative to the game video's dimensions.
-                // Tune these values using the GUI (see config.visual.showIgnoreRegionTunerGUI).
-                xPercent: 0.00,      // X-coordinate (from left, 0.0 = left edge) of the occlusion box.
-                yPercent: 0.27,      // Y-coordinate (from top, 0.0 = top edge) of the occlusion box.
-                widthPercent: 0.37,  // Width of the occlusion box (as % of game video width).
-                heightPercent: 0.74  // Height of the occlusion box (as % of game video height).
-            }
+            enabled: true, modelType: poseDetection.SupportedModels.MoveNet,
+            detectorConfig: { modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING, enableSmoothing: true, minPoseScore: 0.25, },
+            keypointConfidence: 0.20, maxDetections: 5, processingInterval: 30, skipFrames: 1, useWebGL2: true,
+            ignoreSelfRegion: { enabled: true, xPercent: 0.00, yPercent: 0.27, widthPercent: 0.37, heightPercent: 0.74 }
         },
         game: {
-            videoSelector: 'video[aria-label="Game Stream for unknown title"]', // CSS selector to find the main game video stream element.
-            containerSelector: '#game-stream', // CSS selector for the game's main container (used for dispatching input events).
-            recoilCompensation: true, // Enable/disable simulated recoil control.
-            recoilLevel: 3,           // Intensity of recoil compensation (1-5). Higher values attempt to compensate more.
-            recoilPatterns: {         // Predefined recoil patterns. 'vertical' and 'horizontal' are multipliers. 'recoverySpeed' controls how fast recoil settles.
-                1: { vertical: 0, horizontal: 0, recoverySpeed: 0.1 },
-                2: { vertical: 0.15, horizontal: 0.03, recoverySpeed: 0.15 },
-                3: { vertical: 0.3, horizontal: 0.06, recoverySpeed: 0.2 },
-                4: { vertical: 0.5, horizontal: 0.1, recoverySpeed: 0.25 },
-                5: { vertical: 0.7, horizontal: 0.15, recoverySpeed: 0.35 }
+            videoSelector: 'video[aria-label="Game Stream for unknown title"]', containerSelector: '#game-stream',
+            recoilCompensation: true,
+            recoilLevel: 1, // Default recoil level to 1 (slower/less compensation)
+            recoilPatterns: { // Vertical values are positive for downward pull (script will apply negative/upward)
+                1: { vertical: 0.1, horizontal: 0.02, recoverySpeed: 0.25 },
+                2: { vertical: 0.2, horizontal: 0.04, recoverySpeed: 0.20 },
+                3: { vertical: 0.3, horizontal: 0.06, recoverySpeed: 0.15 },
+                4: { vertical: 0.5, horizontal: 0.1, recoverySpeed: 0.12 },
+                5: { vertical: 0.7, horizontal: 0.15, recoverySpeed: 0.10 }
             },
-            autoShoot: true, // Enable automatic shooting when a target is locked and within trigger range.
-            triggerOptions: {
-                delayBeforeShoot: 10, // Milliseconds to wait after locking on before firing the first shot.
-                burstMode: false,     // (Currently not fully utilized with instantLock logic for continuous fire).
-                burstCount: 3,
-                burstInterval: 100
-            },
-            controlOptions: {
-                crouchOnShoot: false, // If true, will attempt to press the crouch key when shooting.
-                crouchKey: 'KeyC',    // JavaScript 'KeyboardEvent.code' for the crouch key.
-                reloadKey: 'KeyR',    // JavaScript 'KeyboardEvent.code' for the reload key.
-                weaponKeys: ['Digit1', 'Digit2', 'Digit3', 'Digit4', 'Digit5'] // 'KeyboardEvent.code' for weapon slots.
-            }
+            autoShoot: true, triggerOptions: {delayBeforeShoot:10,burstMode:false,burstCount:3,burstInterval:100},
+            controlOptions: {crouchOnShoot:false,crouchKey:'KeyC',reloadKey:'KeyR',weaponKeys:['Digit1','Digit2','Digit3','Digit4','Digit5']}
         },
         aim: {
-            activationKey: 'KeyE',    // Key that must be held down to activate aiming/targeting. (e.g., 'KeyE', 'ShiftLeft', 'ControlLeft').
-            fovRadius: 450,           // Radius (in pixels) of the Field of View circle. Aimbot only considers targets within this circle.
-                                      // Larger FOV = detects targets further from screen center. Smaller = more focused.
-            instantLock: true,        // true: Mouse cursor snaps directly to the calculated aim point.
-                                      // false: Mouse cursor moves towards the aim point using smoothing (if enabled).
-            aimPoint: "head",         // Target body part: "head", "neck", "torso_center", or "center" (of the character's derived bounding box).
-            headOffset: 0.15,         // Fallback Y-offset for "head" aimPoint (as % of bbox height from top) if keypoints are unreliable.
-            bodyOffset: 0.4,          // Fallback Y-offset for "center" or "torso_center" (as % of bbox height from top) if keypoints are unreliable.
-            targetPriority: "center", // How to choose a target if multiple are in FOV:
-                                      // - "center": Closest to the center of the game video screen. Recommended for pointer lock.
-                                      // - "crosshair": Closest to the OS mouse cursor (can be unreliable with pointer lock).
-                                      // - "size": Largest target on screen (usually the closest).
-            targetSwitchCooldown: 250,// Milliseconds to wait before switching to a new "best" target if the current one is still valid. Prevents rapid flickering.
-            triggerThreshold: 0.7,    // Auto-shoot triggers when target is within this percentage of fovRadius (e.g., 0.7 = inner 70% of FOV).
-            smoothing: {              // Settings for aim smoothing (only active if 'instantLock' is false).
-                enabled: false,
-                amount: 0.15,         // Smoothing factor (0.01 to 1.0). Lower = faster, less smooth. Higher = slower, more smooth.
-                extrapolation: false  // Experimental: Tries to predict target movement. Can be unstable.
-            },
-            snapOptions: {            // Less relevant if instantLock directly moves the mouse.
-                strength: 1,
-                threshold: 0.9,
-                diminishingRange: false
-            }
+            activationKey: 'KeyE',
+            fovRadius: 450, instantLock: true,
+            aimPoint: "head", headOffset: 0.15, bodyOffset: 0.4, targetPriority: "center", targetSwitchCooldown: 250, triggerThreshold: 0.7,
+            smoothing: { enabled: false, amount: 0.15, extrapolation: false },
+            snapOptions: {strength:1,threshold:0.9,diminishingRange:false}
         },
         visual: {
-            showDebugInfo: true,     // Display on-screen text with FPS, target status, recoil info, etc.
-            crosshair: {
-                enabled: true,
-                style: 'dot',        // Style of the visual crosshair: "dot", "cross", or "circle".
-                color: 'lime',
-                size: 3,
-                centerOnGameScreen: true // If true, this visual crosshair is fixed to the game video center. If false, follows OS mouse.
-            },
-            boundingBoxes: { enabled: false }, // Bounding boxes are off by default (skeleton ESP is preferred).
-            keypoints: {                 // Settings for drawing detected keypoints (the cyan dots).
-                enabled: true,
-                color: 'cyan',
-                radius: 3
-            },
-            skeleton: {                  // Settings for drawing skeleton lines between keypoints.
-                enabled: true,
-                color: 'rgba(255, 0, 255, 0.9)', // Magenta lines.
-                lineWidth: 2
-            },
-            targetLock: {                // Visual indicator (e.g., yellow corners) for the currently locked target.
-                enabled: true,
-                color: 'yellow',
-                style: 'corners'       // "corners", "full" box, or "crosshair" over target.
-            },
-            fovCircle: {                 // Visual representation of the aimbot's Field of View.
-                enabled: true,
-                color: 'rgba(255,255,255,0.3)', // Semi-transparent white.
-                lineWidth: 1,
-                centerOnGameScreen: true // If true, FOV circle is fixed to game video center.
-            },
-            performanceMetrics: {        // Display FPS and AI detection time.
-                enabled: true,
-                position: 'top-left'   // "top-left", "top-right", "bottom-left", "bottom-right".
-            },
-            drawIgnoreRegion: {          // Visual guide for the pixel occlusion area.
-                enabled: true,           // Set true to see where pixels are being blacked out for the AI.
-                color: 'rgba(50, 50, 50, 0.4)', // Semi-transparent dark grey for the visual guide.
-                lineWidth: 1
-            },
-            showIgnoreRegionTunerGUI: false // MODIFIED: Set to 'true' to display sliders for tuning ignoreSelfRegion percentages in real-time.
+            showDebugInfo: true, crosshair: {enabled:true,style:'dot',color:'lime',size:3,centerOnGameScreen:true},
+            boundingBoxes: { enabled: false },
+            keypoints: { enabled:true,color:'cyan',radius:3 },
+            skeleton: { enabled: true, color: 'rgba(255, 0, 255, 0.9)', lineWidth: 2 },
+            targetLock: {enabled:true,color:'yellow',style:'corners'},
+            fovCircle: {enabled:true,color:'rgba(255,255,255,0.3)',lineWidth:1,centerOnGameScreen:true},
+            performanceMetrics: {enabled:true,position:'top-left'},
+            drawIgnoreRegion: { enabled: true, color: 'rgba(50, 50, 50, 0.4)', lineWidth: 1 },
+            showRecoilTunerGUI: false // Set to true to show GUI for recoil level
         }
     };
-    config.version = '4.2.17'; // Version identifier for logs and notifications.
+    config.version = '4.2.17';
 
-    //===========================================================================
-    //            _____ _____ _____ _____    _____ _____ _____ _____ _____
-    //           |  _  |  _  |   __| __  |  |  _  |   __| __  |     |   __|
-    //           |     |     |__   |    -|  |   __|   __|    -| | | |   __|
-    //           |__|__|__|__|_____|__|__|  |__|  |_____|__|__|_|_|_|_____|
-    //
-    //         === Internal Script Logic - Modify Below With Caution ===
-    //===========================================================================
-
-    const tfState = {
-        backend: 'webgl',
-        flags: {
-            WEBGL_FORCE_F16_TEXTURES: false,
-            WEBGL_VERSION: config.detection.useWebGL2 ? 2 : 1,
-        }
-    };
-
+    const tfState = { backend: 'webgl', flags: { WEBGL_FORCE_F16_TEXTURES: false, WEBGL_VERSION: config.detection.useWebGL2 ? 2 : 1, } };
     const state = {
         gameVideo: null, detectionModel: null, modelLoaded: false, detectionActive: false, currentTarget: null,
-        lastTargetSwitch: 0, lastDetectionTime: 0, frameCount: 0, currentWeapon: 0, isShooting: false,
-        recoilState: { active: false, offsetX: 0, offsetY: 0, shotsFired: 0, lastShotTime: 0 },
+        lastTargetSwitch: 0, lastDetectionTime: 0, frameCount: 0, currentWeapon: 0,
+        isShooting: false, // This now specifically refers to the aimbot's auto-shoot state
+        recoilState: { active: false, offsetX: 0, offsetY: 0, shotsFired: 0, lastShotTime: 0, lastLeftButtonState: false }, // Added lastLeftButtonState
         performance: { fps: 0, lastFpsUpdate: 0, framesThisSecond: 0, detectionTime: 0, avgDetectionTime: 0, detectionTimeHistory: [] },
         ui: { overlayCanvas: null, overlayCtx: null, offscreenCanvas: null, offscreenCtx: null, guiElements: {} },
         input: { lastMouseX: window.innerWidth / 2, lastMouseY: window.innerHeight / 2, leftButtonDown: false, rightButtonDown: false, activeKeys: new Set() }
     };
+    const debug = { log: (...args) => console.log(`[AimbotV${config.version}-MoveNet]`, ...args), warn: (...args) => console.warn(`[AimbotV${config.version}-MoveNet]`, ...args), error: (...args) => console.error(`[AimbotV${config.version}-MoveNet]`, ...args), };
 
-    const debug = {
-        log: (...args) => console.log(`[AimbotV${config.version}-MoveNet]`, ...args),
-        warn: (...args) => console.warn(`[AimbotV${config.version}-MoveNet]`, ...args),
-        error: (...args) => console.error(`[AimbotV${config.version}-MoveNet]`, ...args),
-    };
-
-    // --- (The rest of the functions: showNotification, setupTensorFlow, loadDetectionModel, etc.,
-    //      are the same as v4.2.16, with the re-addition of createIgnoreRegionTuningGUI and its call)
-
+    // --- Start of full function definitions ---
     function showNotification(message, type = 'info', duration = 3000) { const n=document.createElement('div');n.style.cssText=`position:fixed;top:20px;left:50%;transform:translateX(-50%);padding:10px 20px;border-radius:5px;color:white;z-index:1000000;font-family:sans-serif;font-size:16px;box-shadow:0 2px 10px rgba(0,0,0,0.2);background-color:${type==='error'?'rgba(255,0,0,0.8)':type==='warning'?'rgba(255,165,0,0.8)':'rgba(0,0,0,0.7)'};`;n.textContent=message;document.body.appendChild(n);setTimeout(()=>n.remove(),duration); }
     async function setupTensorFlow() { try{debug.log("Configuring TF.js...");await tf.setBackend(tfState.backend);await tf.ready();for(const f in tfState.flags)tf.env().set(f,tfState.flags[f]);debug.log(`TF.js backend: ${tf.getBackend()}`);if(tf.getBackend()==='webgl')debug.log(`WebGL Version: ${tf.env().get('WEBGL_VERSION')}`);const sT=performance.now();const tT=tf.zeros([100,100,3]);await tT.data();tT.dispose();debug.log(`TF basic op test: ${(performance.now()-sT).toFixed(2)}ms`);return!0}catch(e){debug.error("TF setup failed:",e);return!1} }
     async function loadDetectionModel() { debug.log("Loading MoveNet model...");try{if(!await setupTensorFlow())throw Error("TF setup failed");if("undefined"==typeof poseDetection)throw Error("Pose Detection API not loaded.");state.detectionModel=await poseDetection.createDetector(config.detection.modelType,config.detection.detectorConfig);const tC=document.createElement('canvas');tC.width=192;tC.height=192;await state.detectionModel.estimatePoses(tC);state.modelLoaded=!0;debug.log("MoveNet model loaded!");showNotification("AI Model (MoveNet) Loaded!","info");return!0}catch(e){debug.error("Failed to load MoveNet model:",e);showNotification("Error loading AI model (MoveNet)! Check console.","error");return!1} }
@@ -193,8 +77,7 @@
     async function detectPlayers() { if (!state.gameVideo || !state.modelLoaded || !state.detectionModel || state.gameVideo.paused || state.gameVideo.ended || state.gameVideo.videoWidth === 0 || state.gameVideo.videoHeight === 0) return []; if (state.frameCount % (config.detection.skipFrames + 1) !== 0) { state.frameCount++; return []; } state.frameCount++; const now = performance.now(); if (now - state.lastDetectionTime < config.detection.processingInterval) return []; let videoSource = state.gameVideo; if (config.detection.ignoreSelfRegion.enabled) { if (!state.ui.offscreenCanvas) { state.ui.offscreenCanvas = document.createElement('canvas'); state.ui.offscreenCtx = state.ui.offscreenCanvas.getContext('2d'); } if (state.ui.offscreenCanvas.width !== state.gameVideo.videoWidth || state.ui.offscreenCanvas.height !== state.gameVideo.videoHeight) { state.ui.offscreenCanvas.width = state.gameVideo.videoWidth; state.ui.offscreenCanvas.height = state.gameVideo.videoHeight; } const ctx = state.ui.offscreenCtx; ctx.drawImage(state.gameVideo, 0, 0, state.gameVideo.videoWidth, state.gameVideo.videoHeight); const region = config.detection.ignoreSelfRegion; const rectX = state.gameVideo.videoWidth * region.xPercent; const rectY = state.gameVideo.videoHeight * region.yPercent; const rectW = state.gameVideo.videoWidth * region.widthPercent; const rectH = state.gameVideo.videoHeight * region.heightPercent; ctx.fillStyle = 'rgba(0, 0, 0, 1)'; ctx.fillRect(rectX, rectY, rectW, rectH); videoSource = state.ui.offscreenCanvas; } try { const detectionStart = performance.now(); const poses = await state.detectionModel.estimatePoses(videoSource, { flipHorizontal: false }); const detectionEnd = performance.now(); state.performance.detectionTime = detectionEnd - detectionStart; state.performance.detectionTimeHistory.push(state.performance.detectionTime); if (state.performance.detectionTimeHistory.length > 30) state.performance.detectionTimeHistory.shift(); state.performance.avgDetectionTime = state.performance.detectionTimeHistory.reduce((a, b) => a + b, 0) / state.performance.detectionTimeHistory.length; state.lastDetectionTime = now; const results = []; if (poses && poses.length > 0) { for (const pose of poses) { if (pose.score && pose.score >= config.detection.detectorConfig.minPoseScore) { const bbox = calculateBoundingBoxFromKeypoints(pose.keypoints); if (bbox && bbox.width > 0 && bbox.height > 0) { results.push({ class: 'person', score: pose.score, bbox: [bbox.x, bbox.y, bbox.width, bbox.height], keypoints: pose.keypoints }); } } } } return results.slice(0, config.detection.maxDetections); } catch (err) { debug.error("Error during pose estimation:", err); return []; } }
     function calculateAimTarget(pred,vRect){const[vBx,vBy,vBw,vBh]=pred.bbox,sBx=vRect.left+vBx/state.gameVideo.videoWidth*vRect.width,sBy=vRect.top+vBy/state.gameVideo.videoHeight*vRect.height,sBw=vBw/state.gameVideo.videoWidth*vRect.width,sBh=vBh/state.gameVideo.videoHeight*vRect.height;let tX,tY;const kps=pred.keypoints,gK=n=>kps.find(k=>k.name===n&&k.score>=config.detection.keypointConfidence);switch(config.aim.aimPoint){case"head":const n=gK('nose'),lE=gK('left_eye'),rE=gK('right_eye');n?(tX=vRect.left+n.x/state.gameVideo.videoWidth*vRect.width,tY=vRect.top+n.y/state.gameVideo.videoHeight*vRect.height):lE&&rE?(tX=vRect.left+((lE.x+rE.x)/2)/state.gameVideo.videoWidth*vRect.width,tY=vRect.top+((lE.y+rE.y)/2)/state.gameVideo.videoHeight*vRect.height):(tX=sBx+sBw/2,tY=sBy+sBh*config.aim.headOffset);break;case"neck":const lS_n=gK('left_shoulder'),rS_n=gK('right_shoulder');lS_n&&rS_n?(tX=vRect.left+((lS_n.x+rS_n.x)/2)/state.gameVideo.videoWidth*vRect.width,tY=vRect.top+((lS_n.y+rS_n.y)/2-vBh*0.05)/state.gameVideo.videoHeight*vRect.height):(tX=sBx+sBw/2,tY=sBy+sBh*(config.aim.headOffset+0.1));break;case"torso_center":const lS_t=gK('left_shoulder'),rS_t=gK('right_shoulder'),lH_t=gK('left_hip'),rH_t=gK('right_hip');lS_t&&rS_t&&lH_t&&rH_t?(tX=vRect.left+(((lS_t.x+rS_t.x)/2+(lH_t.x+rH_t.x)/2)/2)/state.gameVideo.videoWidth*vRect.width,tY=vRect.top+(((lS_t.y+rS_t.y)/2+(lH_t.y+rH_t.y)/2)/2)/state.gameVideo.videoHeight*vRect.height):(tX=sBx+sBw/2,tY=sBy+sBh*config.aim.bodyOffset);break;case"center":default:tX=sBx+sBw/2;tY=sBy+sBh/2;break}return{x:tX,y:tY,width:sBw,height:sBh,bboxRaw:pred.bbox,keypoints:pred.keypoints}}
     function findBestTarget(predictions) { if (!predictions || predictions.length === 0 || !state.gameVideo) return null; const videoRect = state.gameVideo.getBoundingClientRect(); if (!videoRect || videoRect.width === 0) return null; const gameScreenCenterX = videoRect.left + videoRect.width / 2; const gameScreenCenterY = videoRect.top + videoRect.height / 2; let bestTarget = null; let bestScore = Infinity; predictions.forEach(prediction => { const targetInfo = calculateAimTarget(prediction, videoRect); let referenceX, referenceY; if (config.aim.targetPriority === "center") { referenceX = gameScreenCenterX; referenceY = gameScreenCenterY; } else { referenceX = state.input.lastMouseX; referenceY = state.input.lastMouseY; } const dx = targetInfo.x - referenceX; const dy = targetInfo.y - referenceY; const distanceToPriorityPoint = Math.sqrt(dx * dx + dy * dy); let fovCenterX = config.visual.fovCircle.centerOnGameScreen && videoRect ? gameScreenCenterX : state.input.lastMouseX; let fovCenterY = config.visual.fovCircle.centerOnGameScreen && videoRect ? gameScreenCenterY : state.input.lastMouseY; const dx_fov = targetInfo.x - fovCenterX; const dy_fov = targetInfo.y - fovCenterY; if (Math.sqrt(dx_fov*dx_fov + dy_fov*dy_fov) > config.aim.fovRadius) return; let score; switch (config.aim.targetPriority) { case "size": score = targetInfo.width * targetInfo.height > 0 ? 1 / (targetInfo.width * targetInfo.height) : Infinity; break; case "distance": case "center": case "crosshair": default: score = distanceToPriorityPoint; break; } if (score < bestScore) { bestScore = score; bestTarget = { prediction, screenPosition: targetInfo, distance: distanceToPriorityPoint, score: prediction.score }; } }); return bestTarget; }
-    function applyRecoilCompensation(tX,tY){if(!config.game.recoilCompensation||!state.isShooting){if(0!==state.recoilState.offsetX||0!==state.recoilState.offsetY){const rS=config.game.recoilPatterns[config.game.recoilLevel]||{recoverySpeed:0.1};state.recoilState.offsetX*=1-rS.recoverySpeed;state.recoilState.offsetY*=1-rS.recoverySpeed;Math.abs(state.recoilState.offsetX)<0.01&&(state.recoilState.offsetX=0);Math.abs(state.recoilState.offsetY)<0.01&&(state.recoilState.offsetY=0)}return{x:tX,y:tY}}const rS=config.game.recoilPatterns[config.game.recoilLevel]||config.game.recoilPatterns[3],now=performance.now();if(state.isShooting){if(0===state.recoilState.shotsFired||now-state.recoilState.lastShotTime>300){const kM=1.5;state.recoilState.offsetY=rS.vertical*kM;state.recoilState.offsetX=2*(Math.random()-0.5)*rS.horizontal*kM}else{state.recoilState.offsetY+=rS.vertical*(0.3+0.7*Math.random());state.recoilState.offsetX+=(Math.random()-0.5)*rS.horizontal*2;state.recoilState.offsetY=Math.min(state.recoilState.offsetY,5*rS.vertical);state.recoilState.offsetX=Math.min(Math.abs(state.recoilState.offsetX),3*rS.horizontal)*(state.recoilState.offsetX<0?-1:1)}state.recoilState.shotsFired++;state.recoilState.lastShotTime=now}let fX=tX-state.recoilState.offsetX,fY=tY-state.recoilState.offsetY;state.recoilState.offsetX*=1-rS.recoverySpeed;state.recoilState.offsetY*=1-rS.recoverySpeed;return{x:fX,y:fY}}
-    const InputController={init(){state.input.lastMouseX=window.innerWidth/2;state.input.lastMouseY=window.innerHeight/2;document.addEventListener('mousemove',e=>{state.input.lastMouseX=e.clientX;state.input.lastMouseY=e.clientY});this.setupKeyMonitoring();debug.log("Input controller initialized");return!0},setupKeyMonitoring(){document.addEventListener('keydown',e=>{state.input.activeKeys.add(e.code);if(e.code===config.game.controlOptions.crouchKey)debug.log(`Crouch key pressed (${e.code})`);if(e.code===config.aim.activationKey)debug.log(`Aim activation key (${e.code}) pressed.`);config.game.controlOptions.weaponKeys.forEach((k,i)=>{e.code===k&&(state.currentWeapon=i,debug.log(`Switched to weapon slot ${i+1}`))})});document.addEventListener('keyup',e=>{state.input.activeKeys.delete(e.code);if(e.code===config.aim.activationKey)debug.log(`Aim activation key (${e.code}) released.`);});document.addEventListener('mousedown',e=>{0===e.button&&(state.input.leftButtonDown=!0);2===e.button&&(state.input.rightButtonDown=!0)});document.addEventListener('mouseup',e=>{0===e.button&&(state.input.leftButtonDown=!1);2===e.button&&(state.input.rightButtonDown=!1)})},moveMouseTo(tSX,tSY){if(!state.gameVideo)return;const vR=state.gameVideo.getBoundingClientRect();if(!vR||0===vR.width)return;const gVCX=vR.left+vR.width/2,gVCY=vR.top+vR.height/2,mX=tSX-gVCX,mY=tSY-gVCY;if(Math.abs(mX)<0.1&&Math.abs(mY)<0.1)return;const sC=document.querySelector(config.game.containerSelector)||state.gameVideo||document.documentElement,evt=new PointerEvent('pointermove',{bubbles:!0,cancelable:!0,view:window,clientX:Math.round(state.input.lastMouseX+mX),clientY:Math.round(state.input.lastMouseY+mY),screenX:Math.round(state.input.lastMouseX+mX),screenY:Math.round(state.input.lastMouseY+mY),movementX:Math.round(mX),movementY:Math.round(mY),buttons:state.input.leftButtonDown?1:state.input.rightButtonDown?2:0,pointerType:'mouse',isPrimary:!0});sC.dispatchEvent(evt)},startShooting(){if(state.isShooting)return;const sC=document.querySelector(config.game.containerSelector)||state.gameVideo||document.documentElement,evt=new PointerEvent('pointerdown',{bubbles:!0,cancelable:!0,view:window,clientX:Math.round(state.input.lastMouseX),clientY:Math.round(state.input.lastMouseY),button:0,buttons:1,pointerType:'mouse',isPrimary:!0});sC.dispatchEvent(evt);state.isShooting=!0;state.recoilState.shotsFired=0;debug.log("Shooting started (simulated)");config.game.controlOptions.crouchOnShoot&&!state.input.activeKeys.has(config.game.controlOptions.crouchKey)&&this.pressKey(config.game.controlOptions.crouchKey,0)},stopShooting(){if(!state.isShooting)return;const sC=document.querySelector(config.game.containerSelector)||state.gameVideo||document.documentElement,evt=new PointerEvent('pointerup',{bubbles:!0,cancelable:!0,view:window,clientX:Math.round(state.input.lastMouseX),clientY:Math.round(state.input.lastMouseY),button:0,buttons:0,pointerType:'mouse',isPrimary:!0});sC.dispatchEvent(evt);state.isShooting=!1;debug.log("Shooting stopped (simulated)");config.game.controlOptions.crouchOnShoot&&state.input.activeKeys.has(config.game.controlOptions.crouchKey)&&this.releaseKey(config.game.controlOptions.crouchKey)},pressKey(kC,dur=50){const k=kC.replace(/^(Key|Digit)/,''),eT=document.activeElement||document.body,dE=new KeyboardEvent('keydown',{code:kC,key:k,keyCode:kC.startsWith('Digit')?parseInt(k):1===k.length?k.charCodeAt(0):0,bubbles:!0,cancelable:!0,view:window});eT.dispatchEvent(dE);state.input.activeKeys.add(kC);dur>0&&setTimeout(()=>this.releaseKey(kC),dur)},releaseKey(kC){const k=kC.replace(/^(Key|Digit)/,''),eT=document.activeElement||document.body,uE=new KeyboardEvent('keyup',{code:kC,key:k,keyCode:kC.startsWith('Digit')?parseInt(k):1===k.length?k.charCodeAt(0):0,bubbles:!0,cancelable:!0,view:window});eT.dispatchEvent(uE);state.input.activeKeys.delete(kC)},reload(){this.pressKey(config.game.controlOptions.reloadKey,50);debug.log("Reload key pressed")},switchWeapon(sI){sI>=0&&sI<config.game.controlOptions.weaponKeys.length&&(this.pressKey(config.game.controlOptions.weaponKeys[sI],50),state.currentWeapon=sI,debug.log(`Switched to weapon slot ${sI+1}`))}};
+    const InputController={init(){state.input.lastMouseX=window.innerWidth/2;state.input.lastMouseY=window.innerHeight/2;document.addEventListener('mousemove',e=>{state.input.lastMouseX=e.clientX;state.input.lastMouseY=e.clientY});this.setupKeyMonitoring();debug.log("Input controller initialized");return!0},setupKeyMonitoring(){document.addEventListener('keydown',e=>{state.input.activeKeys.add(e.code);if(e.code===config.game.controlOptions.crouchKey)debug.log(`Crouch key pressed (${e.code})`);if(e.code===config.aim.activationKey)debug.log(`Aim activation key (${e.code}) pressed.`);config.game.controlOptions.weaponKeys.forEach((k,i)=>{e.code===k&&(state.currentWeapon=i,debug.log(`Switched to weapon slot ${i+1}`))})});document.addEventListener('keyup',e=>{state.input.activeKeys.delete(e.code);if(e.code===config.aim.activationKey)debug.log(`Aim activation key (${e.code}) released.`);});document.addEventListener('mousedown',e=>{if(e.button===0)state.input.leftButtonDown=!0;if(e.button===2)state.input.rightButtonDown=!0});document.addEventListener('mouseup',e=>{if(e.button===0)state.input.leftButtonDown=!1;if(e.button===2)state.input.rightButtonDown=!1})},moveMouseTo(tSX,tSY){if(!state.gameVideo)return;const vR=state.gameVideo.getBoundingClientRect();if(!vR||0===vR.width)return;const gVCX=vR.left+vR.width/2,gVCY=vR.top+vR.height/2;let mX=tSX-gVCX;let mY=tSY-gVCY;if(Math.abs(mX)<0.1&&Math.abs(mY)<0.1&&state.recoilState.offsetX===0&&state.recoilState.offsetY===0)return;const sC=document.querySelector(config.game.containerSelector)||state.gameVideo||document.documentElement,evt=new PointerEvent('pointermove',{bubbles:!0,cancelable:!0,view:window,clientX:Math.round(state.input.lastMouseX+mX),clientY:Math.round(state.input.lastMouseY+mY),screenX:Math.round(state.input.lastMouseX+mX),screenY:Math.round(state.input.lastMouseY+mY),movementX:Math.round(mX),movementY:Math.round(mY),buttons:(state.input.leftButtonDown?1:0)|(state.input.rightButtonDown?2:0),pointerType:'mouse',isPrimary:!0});sC.dispatchEvent(evt)},startShooting(){if(state.isShooting)return;const sC=document.querySelector(config.game.containerSelector)||state.gameVideo||document.documentElement,evt=new PointerEvent('pointerdown',{bubbles:!0,cancelable:!0,view:window,clientX:Math.round(state.input.lastMouseX),clientY:Math.round(state.input.lastMouseY),button:0,buttons:1,pointerType:'mouse',isPrimary:!0});sC.dispatchEvent(evt);state.isShooting=!0;state.recoilState.shotsFired=0;debug.log("Shooting started (simulated)");config.game.controlOptions.crouchOnShoot&&!state.input.activeKeys.has(config.game.controlOptions.crouchKey)&&this.pressKey(config.game.controlOptions.crouchKey,0)},stopShooting(){if(!state.isShooting)return;const sC=document.querySelector(config.game.containerSelector)||state.gameVideo||document.documentElement,evt=new PointerEvent('pointerup',{bubbles:!0,cancelable:!0,view:window,clientX:Math.round(state.input.lastMouseX),clientY:Math.round(state.input.lastMouseY),button:0,buttons:0,pointerType:'mouse',isPrimary:!0});sC.dispatchEvent(evt);state.isShooting=!1;debug.log("Shooting stopped (simulated)");config.game.controlOptions.crouchOnShoot&&state.input.activeKeys.has(config.game.controlOptions.crouchKey)&&this.releaseKey(config.game.controlOptions.crouchKey)},pressKey(kC,dur=50){const k=kC.replace(/^(Key|Digit)/,''),eT=document.activeElement||document.body,dE=new KeyboardEvent('keydown',{code:kC,key:k,keyCode:kC.startsWith('Digit')?parseInt(k):1===k.length?k.charCodeAt(0):0,bubbles:!0,cancelable:!0,view:window});eT.dispatchEvent(dE);state.input.activeKeys.add(kC);dur>0&&setTimeout(()=>this.releaseKey(kC),dur)},releaseKey(kC){const k=kC.replace(/^(Key|Digit)/,''),eT=document.activeElement||document.body,uE=new KeyboardEvent('keyup',{code:kC,key:k,keyCode:kC.startsWith('Digit')?parseInt(k):1===k.length?k.charCodeAt(0):0,bubbles:!0,cancelable:!0,view:window});eT.dispatchEvent(uE);state.input.activeKeys.delete(kC)},reload(){this.pressKey(config.game.controlOptions.reloadKey,50);debug.log("Reload key pressed")},switchWeapon(sI){sI>=0&&sI<config.game.controlOptions.weaponKeys.length&&(this.pressKey(config.game.controlOptions.weaponKeys[sI],50),state.currentWeapon=sI,debug.log(`Switched to weapon slot ${sI+1}`))}};
     function createOverlayCanvas(){if(state.ui.overlayCanvas)return;const c=document.createElement('canvas');c.id='xcloud-aimbot-overlay';c.width=window.innerWidth;c.height=window.innerHeight;c.style.cssText='position:fixed;top:0;left:0;width:100vw;height:100vh;pointer-events:none;z-index:99999;';state.ui.overlayCanvas=c;state.ui.overlayCtx=c.getContext('2d');document.body.appendChild(c);window.addEventListener('resize',()=>{c.width=window.innerWidth;c.height=window.innerHeight});debug.log("Overlay canvas created")}
     function drawCrosshair(vR){if(!state.ui.overlayCtx||!config.visual.crosshair.enabled)return;const ctx=state.ui.overlayCtx;let cX,cY;config.visual.crosshair.centerOnGameScreen&&vR&&vR.width>0?(cX=vR.left+vR.width/2,cY=vR.top+vR.height/2):(cX=state.input.lastMouseX,cY=state.input.lastMouseY);const s=config.visual.crosshair.size;ctx.strokeStyle=config.visual.crosshair.color;ctx.fillStyle=config.visual.crosshair.color;ctx.lineWidth=1;switch(config.visual.crosshair.style){case'cross':ctx.beginPath();ctx.moveTo(cX-2*s,cY);ctx.lineTo(cX+2*s,cY);ctx.moveTo(cX,cY-2*s);ctx.lineTo(cX,cY+2*s);ctx.stroke();break;case'dot':ctx.beginPath();ctx.arc(cX,cY,s,0,2*Math.PI);ctx.fill();break;case'circle':ctx.beginPath();ctx.arc(cX,cY,2*s,0,2*Math.PI);ctx.stroke();break}}
     function drawKeypoints(ps,vR){if(!config.visual.keypoints.enabled||!state.ui.overlayCtx||!ps||0===ps.length||!vR)return;const ctx=state.ui.overlayCtx;ps.forEach(p=>{p.keypoints&&p.keypoints.forEach(kP=>{if(kP.score&&kP.score>=config.detection.keypointConfidence){const sX=vR.left+kP.x/state.gameVideo.videoWidth*vR.width,sY=vR.top+kP.y/state.gameVideo.videoHeight*vR.height;ctx.beginPath();ctx.arc(sX,sY,config.visual.keypoints.radius,0,2*Math.PI);ctx.fillStyle=config.visual.keypoints.color;ctx.fill()}})})};
@@ -207,9 +90,203 @@
     function drawDebugInfo(){ if(!config.visual.showDebugInfo||!state.ui.overlayCtx)return; const ctx=state.ui.overlayCtx; const aimingActive = state.input.activeKeys.has(config.aim.activationKey); const dL=[ `Target: ${state.currentTarget?`Yes (Score: ${state.currentTarget.score.toFixed(2)})`:"No"}`, `Shooting: ${state.isShooting?"Yes":"No"} | Aiming (${config.aim.activationKey.replace('Key','')})${aimingActive?" (Active)":" (Inactive)"}`, `Recoil X: ${state.recoilState.offsetX.toFixed(2)} Y: ${state.recoilState.offsetY.toFixed(2)}`, `OS Mouse: X:${state.input.lastMouseX.toFixed(0)} Y:${state.input.lastMouseY.toFixed(0)}` ]; ctx.font='12px Arial';ctx.fillStyle='rgba(255,255,0,0.8)';const lH=15;let sY=80; if(config.visual.performanceMetrics.enabled&&"top-left"===config.visual.performanceMetrics.position)sY=20+(state.performance.fps>0?2:1)*16+20; let sX=10; if(config.visual.performanceMetrics.enabled&&"bottom-left"===config.visual.performanceMetrics.position&&config.visual.showDebugInfo)sY=state.ui.overlayCanvas.height-(state.performance.fps>0?2:1)*16-10-dL.length*lH-10; dL.forEach((l,i)=>ctx.fillText(l,sX,sY+i*lH)); };
     function drawIgnoreSelfRegionVisualization(videoRect) { if (!config.detection.ignoreSelfRegion.enabled || !config.visual.drawIgnoreRegion.enabled || !state.ui.overlayCtx || !videoRect || videoRect.width === 0) return; const ctx = state.ui.overlayCtx; const region = config.detection.ignoreSelfRegion; const visConfig = config.visual.drawIgnoreRegion; const rectX = videoRect.left + videoRect.width * region.xPercent; const rectY = videoRect.top + videoRect.height * region.yPercent; const rectW = videoRect.width * region.widthPercent; const rectH = videoRect.height * region.heightPercent; ctx.fillStyle = visConfig.color; ctx.fillRect(rectX, rectY, rectW, rectH); if (visConfig.lineWidth > 0) { ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)'; ctx.lineWidth = visConfig.lineWidth; ctx.strokeRect(rectX, rectY, rectW, rectH); } };
     function drawVisuals(ps,cT){ if(!state.ui.overlayCtx)return; const ctx=state.ui.overlayCtx,cvs=state.ui.overlayCanvas; ctx.clearRect(0,0,cvs.width,cvs.height); const vR=state.gameVideo?state.gameVideo.getBoundingClientRect():null; config.visual.crosshair.enabled&&drawCrosshair(vR); config.visual.fovCircle.enabled&&drawFOVCircle(vR); if (config.detection.ignoreSelfRegion.enabled && config.visual.drawIgnoreRegion.enabled && vR) { drawIgnoreSelfRegionVisualization(vR); } if(vR&&vR.width>0){ if (config.visual.boundingBoxes.enabled) drawBoundingBoxes(ps,vR); if (config.visual.keypoints.enabled) drawKeypoints(ps,vR); if (config.visual.skeleton.enabled) drawSkeleton(ps, vR); if (config.visual.targetLock.enabled&&cT) drawTargetLockIndicator(cT,vR); } config.visual.performanceMetrics.enabled&&drawPerformanceMetrics(); config.visual.showDebugInfo&&drawDebugInfo() }
-    async function processAiming(timestamp) { if (!config.detection.enabled || !state.modelLoaded) { drawVisuals([], null); state.currentTarget = null; return; } const players = await detectPlayers(); const newTarget = findBestTarget(players); if (newTarget) { if (!state.currentTarget || newTarget.prediction !== state.currentTarget.prediction) { const now = performance.now(); if (!state.currentTarget || now - state.lastTargetSwitch > config.aim.targetSwitchCooldown) { debug.log(`New target acquired: Score ${newTarget.score.toFixed(2)}, dist: ${newTarget.distance.toFixed(0)}px`); state.currentTarget = newTarget; state.lastTargetSwitch = now; } } else { state.currentTarget = newTarget; } } else { state.currentTarget = null; } drawVisuals(players, state.currentTarget); if (state.currentTarget && state.input.activeKeys.has(config.aim.activationKey)) { let { x: targetX, y: targetY } = state.currentTarget.screenPosition; const compensatedPos = applyRecoilCompensation(targetX, targetY); InputController.moveMouseTo(compensatedPos.x, compensatedPos.y); if (config.game.autoShoot && state.currentTarget.distance < config.aim.fovRadius * config.aim.triggerThreshold) { if (!state.isShooting) { setTimeout(() => { if (state.currentTarget && state.input.activeKeys.has(config.aim.activationKey)) { InputController.startShooting(); } }, config.game.triggerOptions.delayBeforeShoot); } } else if (state.isShooting && !config.game.triggerOptions.burstMode) { InputController.stopShooting(); } } else { if (state.isShooting && !config.game.triggerOptions.burstMode) { InputController.stopShooting(); } if (state.currentTarget && !state.input.activeKeys.has(config.aim.activationKey)) { state.currentTarget = null; } } }
+
+    // MODIFIED applyRecoilCompensation
+    function applyRecoilCompensation() {
+        if (!config.game.recoilCompensation) {
+            if (state.recoilState.offsetX !== 0 || state.recoilState.offsetY !== 0) {
+                const recoilSettings = config.game.recoilPatterns[config.game.recoilLevel] || config.game.recoilPatterns[1];
+                state.recoilState.offsetX *= (1 - recoilSettings.recoverySpeed);
+                state.recoilState.offsetY *= (1 - recoilSettings.recoverySpeed);
+                if (Math.abs(state.recoilState.offsetX) < 0.01) state.recoilState.offsetX = 0;
+                if (Math.abs(state.recoilState.offsetY) < 0.01) state.recoilState.offsetY = 0;
+            }
+            return;
+        }
+
+        const recoilSettings = config.game.recoilPatterns[config.game.recoilLevel] || config.game.recoilPatterns[1];
+        const now = performance.now();
+
+        if (state.input.leftButtonDown && !state.recoilState.lastLeftButtonState) { // Just started manual fire
+            state.recoilState.shotsFired = 0;
+            state.recoilState.active = true;
+            // debug.log("Manual fire started, recoil active.");
+        }
+        state.recoilState.lastLeftButtonState = state.input.leftButtonDown;
+
+        if (state.input.leftButtonDown && state.recoilState.active) {
+            if (state.recoilState.shotsFired === 0 || now - state.recoilState.lastShotTime > 200) { // Shorter reset time for tap firing
+                const kickMultiplier = 1.0; // Less aggressive initial kick for compensation
+                state.recoilState.offsetY = -(recoilSettings.vertical * kickMultiplier); // Negative for upward mouse move
+                state.recoilState.offsetX = (Math.random() - 0.5) * 2 * recoilSettings.horizontal * kickMultiplier;
+            } else {
+                state.recoilState.offsetY -= recoilSettings.vertical * (0.2 + 0.5 * Math.random());
+                state.recoilState.offsetX += (Math.random() - 0.5) * recoilSettings.horizontal * 1.5;
+            }
+
+            state.recoilState.offsetY = Math.max(state.recoilState.offsetY, -(recoilSettings.vertical * 4));
+            state.recoilState.offsetX = Math.min(Math.abs(state.recoilState.offsetX), recoilSettings.horizontal * 2.5) * (state.recoilState.offsetX < 0 ? -1 : 1);
+
+            if ((Math.abs(state.recoilState.offsetX) > 0.01 || Math.abs(state.recoilState.offsetY) > 0.01) && state.gameVideo) {
+                const event = new PointerEvent('pointermove', {
+                    bubbles: true, cancelable: true, view: window,
+                    movementX: Math.round(state.recoilState.offsetX),
+                    movementY: Math.round(state.recoilState.offsetY),
+                    buttons: (state.input.leftButtonDown ? 1 : 0) | (state.input.rightButtonDown ? 2 : 0),
+                    pointerType: 'mouse', isPrimary: true
+                });
+                const streamContainer = document.querySelector(config.game.containerSelector) || state.gameVideo || document.documentElement;
+                streamContainer.dispatchEvent(event);
+            }
+            state.recoilState.shotsFired++;
+            state.recoilState.lastShotTime = now;
+            state.recoilState.offsetX *= (1 - (recoilSettings.recoverySpeed * 1.5)); // Faster decay
+            state.recoilState.offsetY *= (1 - (recoilSettings.recoverySpeed * 1.5)); // Faster decay
+        } else {
+            state.recoilState.active = false;
+            if (state.recoilState.offsetX !== 0 || state.recoilState.offsetY !== 0) {
+                state.recoilState.offsetX *= (1 - recoilSettings.recoverySpeed);
+                state.recoilState.offsetY *= (1 - recoilSettings.recoverySpeed);
+                if (Math.abs(state.recoilState.offsetX) < 0.01) state.recoilState.offsetX = 0;
+                if (Math.abs(state.recoilState.offsetY) < 0.01) state.recoilState.offsetY = 0;
+            }
+        }
+    }
+
+    async function processAiming(timestamp) {
+        if (config.game.recoilCompensation) {
+            applyRecoilCompensation();
+        }
+        if (!config.detection.enabled || !state.modelLoaded) {
+            drawVisuals([], null); state.currentTarget = null; return;
+        }
+        const players = await detectPlayers();
+        const newTarget = findBestTarget(players);
+        if (newTarget) {
+            if (!state.currentTarget || newTarget.prediction !== state.currentTarget.prediction) {
+                const now = performance.now();
+                if (!state.currentTarget || now - state.lastTargetSwitch > config.aim.targetSwitchCooldown) {
+                    debug.log(`New target acquired: Score ${newTarget.score.toFixed(2)}, dist: ${newTarget.distance.toFixed(0)}px`);
+                    state.currentTarget = newTarget; state.lastTargetSwitch = now;
+                }
+            } else { state.currentTarget = newTarget; }
+        } else { state.currentTarget = null; }
+        drawVisuals(players, state.currentTarget);
+        if (state.currentTarget && state.input.activeKeys.has(config.aim.activationKey)) {
+            let { x: targetX, y: targetY } = state.currentTarget.screenPosition;
+            // For instantLock, we aim directly. Manual recoil is handled separately.
+            InputController.moveMouseTo(targetX, targetY);
+            if (config.game.autoShoot && state.currentTarget.distance < config.aim.fovRadius * config.aim.triggerThreshold) {
+                if (!state.isShooting) {
+                    setTimeout(() => {
+                        if (state.currentTarget && state.input.activeKeys.has(config.aim.activationKey)) {
+                            InputController.startShooting();
+                        }
+                    }, config.game.triggerOptions.delayBeforeShoot);
+                }
+            } else if (state.isShooting && !config.game.triggerOptions.burstMode) {
+                InputController.stopShooting();
+            }
+        } else {
+            if (state.isShooting && !config.game.triggerOptions.burstMode) InputController.stopShooting();
+            if (state.currentTarget && !state.input.activeKeys.has(config.aim.activationKey)) state.currentTarget = null;
+        }
+    }
+
+    // --- GUI Creation for Tuning Recoil ---
+    function createRecoilTuningGUI() {
+        if (!config.visual.showRecoilTunerGUI) return;
+
+        const guiContainer = document.createElement('div');
+        guiContainer.id = 'aimbot-recoil-gui';
+        guiContainer.style.cssText = `
+            position: fixed;
+            top: 280px; /* Adjust as needed, e.g., below performance metrics or tuner GUI */
+            right: 10px;
+            background-color: rgba(30, 30, 30, 0.85);
+            border: 1px solid #555;
+            border-radius: 5px;
+            padding: 10px;
+            color: white;
+            font-family: Arial, sans-serif;
+            font-size: 12px;
+            z-index: 1000001; /* Ensure it's on top of other UI but below critical game elements if possible */
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            width: 230px; /* Slightly wider for labels */
+        `;
+        guiContainer.innerHTML = '<h4 style="margin:0 0 10px 0; text-align:center; font-size: 14px;">Anti-Recoil Tuner</h4>';
+
+        // Slider for Recoil Level
+        const levelDiv = document.createElement('div');
+        levelDiv.style.display = 'flex'; levelDiv.style.alignItems = 'center'; levelDiv.style.justifyContent = 'space-between';
+
+        const levelLabel = document.createElement('label');
+        levelLabel.textContent = 'Recoil Level:';
+        levelLabel.htmlFor = 'recoilLevelSlider'; // Associate label with slider
+        levelLabel.style.marginRight = '10px';
+        levelLabel.style.whiteSpace = 'nowrap';
+
+
+        const levelSlider = document.createElement('input');
+        levelSlider.type = 'range';
+        levelSlider.id = 'recoilLevelSlider';
+        levelSlider.min = 1; levelSlider.max = 5; levelSlider.step = 1;
+        levelSlider.value = config.game.recoilLevel;
+        levelSlider.style.width = '100px';
+        levelSlider.style.flexGrow = '1';
+
+
+        const levelValueDisplay = document.createElement('span');
+        levelValueDisplay.textContent = levelSlider.value;
+        levelValueDisplay.style.marginLeft = '10px';
+        levelValueDisplay.style.width = '20px';
+        levelValueDisplay.style.textAlign = 'right';
+
+        levelSlider.addEventListener('input', () => {
+            config.game.recoilLevel = parseInt(levelSlider.value);
+            levelValueDisplay.textContent = levelSlider.value;
+            debug.log(`Recoil level set to: ${config.game.recoilLevel}`);
+        });
+
+        levelDiv.appendChild(levelLabel);
+        levelDiv.appendChild(levelSlider);
+        levelDiv.appendChild(levelValueDisplay);
+        guiContainer.appendChild(levelDiv);
+
+        document.body.appendChild(guiContainer);
+        debug.log("Recoil tuning GUI created.");
+    }
+
+
     function startAimbotLoop() { debug.log("Starting main aimbot loop"); let loopActive = true; async function mainLoop(timestamp) { if (!loopActive) return; requestAnimationFrame(mainLoop); state.performance.framesThisSecond++; if (timestamp - state.performance.lastFpsUpdate >= 1000) { state.performance.fps = state.performance.framesThisSecond; state.performance.framesThisSecond = 0; state.performance.lastFpsUpdate = timestamp; } if (!state.gameVideo || state.gameVideo.paused || state.gameVideo.ended || state.gameVideo.videoWidth === 0) { if (state.isShooting) InputController.stopShooting(); if (state.ui.overlayCtx) state.ui.overlayCtx.clearRect(0, 0, state.ui.overlayCanvas.width, state.ui.overlayCanvas.height); state.currentTarget = null; return; } await processAiming(timestamp); } requestAnimationFrame(mainLoop); }
-    async function initializeAimbot(){ debug.log(`Initializing Aimbot V${config.version} (MoveNet)...`); state.gameVideo=document.querySelector(config.game.videoSelector); if(!state.gameVideo){debug.error("Game video element not found. Retrying...");showNotification("Error: Game video not found! Aimbot cannot start.","error",5E3);setTimeout(initializeAimbot,3E3);return} debug.log("Game video element found:",state.gameVideo); if(state.gameVideo.readyState<state.gameVideo.HAVE_METADATA){ debug.log("Waiting for video metadata..."); try{await new Promise((rs,rj)=>{state.gameVideo.onloadedmetadata=rs;state.gameVideo.onerror=rj});debug.log(`Video metadata loaded: ${state.gameVideo.videoWidth}x${state.gameVideo.videoHeight}`)} catch(vE){debug.error("Error loading video metadata:",vE);showNotification("Error loading video. Aimbot might not work correctly.","error");setTimeout(initializeAimbot,5E3);return} } else { debug.log(`Video dimensions readily available: ${state.gameVideo.videoWidth}x${state.gameVideo.videoHeight}`); } createOverlayCanvas(); if(!InputController.init()){debug.error("Input controller failed to initialize.");showNotification("Error: Input controller init failed!","error");return} if(config.detection.enabled){ if(!await loadDetectionModel())debug.error("Detection model (MoveNet) failed to load. Detection features disabled.") }else{ debug.log("Detection is disabled in config."),showNotification("AI Detection is disabled.","info"); } startAimbotLoop(); debug.log("Aimbot (MoveNet) initialized and main loop started."); showNotification(`Precision Aimbot V${config.version} (MoveNet) Initialized!`, "info"); }
+    async function initializeAimbot(){
+        debug.log(`Initializing Aimbot V${config.version} (MoveNet)...`);
+        state.gameVideo=document.querySelector(config.game.videoSelector);
+        if(!state.gameVideo){debug.error("Game video element not found. Retrying...");showNotification("Error: Game video not found! Aimbot cannot start.","error",5E3);setTimeout(initializeAimbot,3E3);return}
+        debug.log("Game video element found:",state.gameVideo);
+        if(state.gameVideo.readyState<state.gameVideo.HAVE_METADATA){
+            debug.log("Waiting for video metadata...");
+            try{await new Promise((rs,rj)=>{state.gameVideo.onloadedmetadata=rs;state.gameVideo.onerror=rj});debug.log(`Video metadata loaded: ${state.gameVideo.videoWidth}x${state.gameVideo.videoHeight}`)}
+            catch(vE){debug.error("Error loading video metadata:",vE);showNotification("Error loading video. Aimbot might not work correctly.","error");setTimeout(initializeAimbot,5E3);return}
+        } else {
+            debug.log(`Video dimensions readily available: ${state.gameVideo.videoWidth}x${state.gameVideo.videoHeight}`);
+        }
+        createOverlayCanvas();
+        if (config.visual.showRecoilTunerGUI) { // Check if recoil tuner GUI should be shown
+            createRecoilTuningGUI();
+        }
+        if(!InputController.init()){debug.error("Input controller failed to initialize.");showNotification("Error: Input controller init failed!","error");return}
+        if(config.detection.enabled){
+            if(!await loadDetectionModel())debug.error("Detection model (MoveNet) failed to load. Detection features disabled.")
+        }else{
+            debug.log("Detection is disabled in config."),showNotification("AI Detection is disabled.","info");
+        }
+        startAimbotLoop();
+        debug.log("Aimbot (MoveNet) initialized and main loop started.");
+        showNotification(`Precision Aimbot V${config.version} (MoveNet) Initialized!`, "info");
+    }
 
     (document.readyState==='complete'||document.readyState==='interactive')?setTimeout(initializeAimbot,2500):window.addEventListener('load',()=>setTimeout(initializeAimbot,2500));
 })();
