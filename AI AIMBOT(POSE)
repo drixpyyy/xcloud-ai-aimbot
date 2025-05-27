@@ -36,7 +36,7 @@
             dynamicFrameSkipping: {
                 enabled: true, // Enable dynamic frame-skipping (true/false)
                 minSkipFrames: 0, // Minimum frames to skip (0 to 5)
-                maxSkipFrames: 5, // Maximum frames to skip (0 to 5)
+                maxSkipFrames: 3, // Maximum frames to skip (0 to 5)
                 targetFPS: 30, // Target FPS for dynamic adjustment (20 to 60)
                 highDetectionTimeThreshold: 20, // Detection time (ms) above which skipFrames increases (10 to 50)
                 lowDetectionTimeThreshold: 10, // Detection time (ms) below which skipFrames decreases (5 to 30)
@@ -117,17 +117,17 @@
             },
             boundingBoxes: { enabled: false }, // Show bounding boxes around targets (true/false)
             keypoints: {
-                enabled: true, // Show keypoint dots on targets (true/false)
+                enabled: false, // Show keypoint dots on targets (true/false)
                 color: 'cyan', // Keypoint color
                 radius: 3 // Keypoint size (pixels, 1 to 10)
             },
             skeleton: {
-                enabled: true, // Show skeleton lines on targets (true/false)
+                enabled: false, // Show skeleton lines on targets (true/false)
                 color: 'rgba(255, 0, 255, 0.9)', // Skeleton color
                 lineWidth: 2 // Skeleton line thickness (pixels, 1 to 5)
             },
             targetLock: {
-                enabled: true, // Show lock-on indicator (true/false)
+                enabled: false, // Show lock-on indicator (true/false)
                 color: 'yellow', // Indicator color
                 style: 'corners' // Indicator style: 'corners', 'full', or 'crosshair'
             },
