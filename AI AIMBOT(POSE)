@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Fortnite xCloud Precision Aimbot (MoveNet) - ud
-// @description  AI-powered aimbot for Fortnite on xCloud with MoveNet pose detection, dynamic frame-skipping, and FOV-restricted detection.
+// @description  AI-powered aimbot for Fortnite on xCloud with MoveNet pose detection, dynamic frame-skipping, FOV-restricted detection, and instant triggerbot.
 // @author       Improved Version / Community
-// @version      4.2.20
+// @version      4.2.21
 // @match        *://*.xbox.com/play/*
 // @grant        none
 // @run-at       document-end
@@ -68,9 +68,8 @@
                 5: { vertical: 0.7, horizontal: 0.15, recoverySpeed: 0.10 }
                 // Adjust vertical/horizontal for recoil strength, recoverySpeed for how fast it resets (0.0 to 1.0)
             },
-            autoShoot: true, // Automatically shoot when target is in range (true/false)
+            autoShoot: true, // Automatically shoot when crosshair is in target lock (true/false)
             triggerOptions: {
-                delayBeforeShoot: 10, // Delay (ms) before auto-shooting (0 to 100)
                 burstMode: false, // Enable burst fire mode (true/false)
                 burstCount: 3, // Number of shots per burst (1 to 10)
                 burstInterval: 100 // Time (ms) between burst shots (50 to 500)
@@ -143,16 +142,10 @@
                 enabled: true, // Show FPS and detection time (true/false)
                 position: 'top-left' // Position: 'top-left', 'top-right', 'bottom-left', 'bottom-right'
             },
-            drawIgnoreRegion: {
-                enabled: true, // Show ignore region rectangle (true/false)
-                color: 'rgba(50, 50, 50, 0.4)', // Region color
-                lineWidth: 1, // Border thickness (pixels, 0 to 5, 0 = no border)
-                showOnlyWhenAiming: true // Show only when aim key is held (true/false)
-            },
             showRecoilTunerGUI: false // Show on-screen recoil tuning GUI (true/false)
         }
     };
-    config.version = '4.2.20'; // Script version (do not change)
+    config.version = '4.2.21'; // Script version (do not change)
 
     // === ASCII Art Separator ===
     // This visually separates configuration from debugging for clarity
@@ -580,6 +573,7 @@
                 ctx.stroke();
                 break;
         }
+        return { x: cX, y: cY };
     }
 
     function drawKeypoints(ps, vR) {
@@ -665,7 +659,7 @@
     }
 
     function drawTargetLockIndicator(t, vR) {
-        if (!config.visual.targetLock.enabled || !state.ui.overlayCtx || !t || !vR) return;
+        if (!config.visual.targetLock.enabled || !state.ui.overlayCtx || !t || !vR) return null;
         const ctx = state.ui.overlayCtx;
         const [vBx, vBy, vBw, vBh] = t.prediction.bbox;
         const bSX = vR.left + vBx / state.gameVideo.videoWidth * vR.width;
@@ -697,6 +691,7 @@
                 ctx.stroke();
                 break;
         }
+        return { x: bSX, y: bSY, width: bSW, height: bSH };
     }
 
     function drawFOVCircle(vR) {
@@ -769,24 +764,6 @@
         dL.forEach((l, i) => ctx.fillText(l, sX, sY + i * lH));
     }
 
-    function drawIgnoreSelfRegionVisualization(videoRect) {
-        if (!config.detection.ignoreSelfRegion.enabled || !config.visual.drawIgnoreRegion.enabled || !state.ui.overlayCtx || !videoRect || videoRect.width === 0) return;
-        const ctx = state.ui.overlayCtx;
-        const region = config.detection.ignoreSelfRegion;
-        const visConfig = config.visual.drawIgnoreRegion;
-        const rectX = videoRect.left + videoRect.width * region.xPercent;
-        const rectY = videoRect.top + videoRect.height * region.yPercent;
-        const rectW = videoRect.width * region.widthPercent;
-        const rectH = videoRect.height * region.heightPercent;
-        ctx.fillStyle = visConfig.color;
-        ctx.fillRect(rectX, rectY, rectW, rectH);
-        if (visConfig.lineWidth > 0) {
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)';
-            ctx.lineWidth = visConfig.lineWidth;
-            ctx.strokeRect(rectX, rectY, rectW, rectH);
-        }
-    }
-
     function drawVisuals(players, currentTarget, hasTargetInFOV) {
         if (!state.ui.overlayCtx) return;
         const ctx = state.ui.overlayCtx;
@@ -796,7 +773,7 @@
         const isAimKeyHeld = state.input.activeKeys.has(config.aim.activationKey);
 
         // Always draw crosshair and FOV circle (if enabled and aim key is held)
-        if (config.visual.crosshair.enabled) drawCrosshair(videoRect);
+        const crosshairPos = config.visual.crosshair.enabled ? drawCrosshair(videoRect) : null;
         if (config.visual.fovCircle.enabled && (!config.visual.fovCircle.showOnlyWhenAiming || isAimKeyHeld)) {
             drawFOVCircle(videoRect);
         }
@@ -805,17 +782,27 @@
         if (config.visual.performanceMetrics.enabled) drawPerformanceMetrics();
         if (config.visual.showDebugInfo) drawDebugInfo();
 
-        // Draw ignore region if enabled and aim key is held
-        if (config.detection.ignoreSelfRegion.enabled && config.visual.drawIgnoreRegion.enabled &&
-            (!config.visual.drawIgnoreRegion.showOnlyWhenAiming || isAimKeyHeld) && videoRect) {
-            drawIgnoreSelfRegionVisualization(videoRect);
-        }
-
         // Only draw player-related visuals if there is a target in FOV and aim key is held
         if (hasTargetInFOV && isAimKeyHeld && videoRect && videoRect.width > 0) {
             if (config.visual.keypoints.enabled) drawKeypoints(players, videoRect);
             if (config.visual.skeleton.enabled) drawSkeleton(players, videoRect);
-            if (config.visual.targetLock.enabled && currentTarget) drawTargetLockIndicator(currentTarget, videoRect);
+            if (config.visual.targetLock.enabled && currentTarget) {
+                const targetLockRect = drawTargetLockIndicator(currentTarget, videoRect);
+                // Check if crosshair is inside target lock for instant shooting
+                if (config.game.autoShoot && crosshairPos && targetLockRect && isAimKeyHeld) {
+                    const { x: cX, y: cY } = crosshairPos;
+                    const { x: tX, y: tY, width: tW, height: tH } = targetLockRect;
+                    if (cX >= tX && cX <= tX + tW && cY >= tY && cY <= tY + tH) {
+                        if (!state.isShooting) {
+                            InputController.startShooting();
+                        }
+                    } else if (state.isShooting && !config.game.triggerOptions.burstMode) {
+                        InputController.stopShooting();
+                    }
+                }
+            }
+        } else if (state.isShooting && !config.game.triggerOptions.burstMode) {
+            InputController.stopShooting();
         }
     }
 
@@ -911,19 +898,6 @@
         if (state.currentTarget) {
             let { x: targetX, y: targetY } = state.currentTarget.screenPosition;
             InputController.moveMouseTo(targetX, targetY);
-            if (config.game.autoShoot && state.currentTarget.distance < config.aim.fovRadius * config.aim.triggerThreshold) {
-                if (!state.isShooting) {
-                    setTimeout(() => {
-                        if (state.currentTarget && state.input.activeKeys.has(config.aim.activationKey)) {
-                            InputController.startShooting();
-                        }
-                    }, config.game.triggerOptions.delayBeforeShoot);
-                }
-            } else if (state.isShooting && !config.game.triggerOptions.burstMode) {
-                InputController.stopShooting();
-            }
-        } else {
-            if (state.isShooting && !config.game.triggerOptions.burstMode) InputController.stopShooting();
         }
     }
 
