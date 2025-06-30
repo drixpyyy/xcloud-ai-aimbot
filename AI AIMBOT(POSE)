@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         Fortnite xCloud Precision Aimbot (MoveNet) - ud
-// @description  AI-powered aimbot for Fortnite on xCloud with MoveNet pose detection, dynamic frame-skipping, FOV-restricted detection, and instant triggerbot.
-// @author       Improved Version / Community
-// @version      4.2.21
+// @name         dont really wanna work on this but im adding some stuff for it to work
+// @description  AI-powered aimbot for Fortnite on xCloud compatible with chromeOS and Windows and Linux(future updates soon)
+// @author       wesd
+// @version      5.2.0
 // @match        *://*.xbox.com/play/*
 // @grant        none
 // @run-at       document-end
@@ -16,197 +16,165 @@
     'use strict';
 
     // === Configuration Section ===
-    // This section contains all customizable settings for the aimbot.
-    // Each option is documented with its purpose, valid values, and how to adjust it.
-
     const config = {
         // Detection settings for MoveNet AI model
         detection: {
-            enabled: true, // Set to false to disable AI detection (aimbot visuals only)
-            modelType: poseDetection.SupportedModels.MoveNet, // Do not change unless using a different model
+            enabled: true,
+            modelType: poseDetection.SupportedModels.MoveNet,
             detectorConfig: {
-                modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING, // Model type: SINGLEPOSE_LIGHTNING (fast) or SINGLEPOSE_THUNDER (accurate)
-                enableSmoothing: true, // Smooths pose detection for less jitter (true/false)
-                minPoseScore: 0.25 // Minimum confidence score for a detected pose (0.0 to 1.0, lower = more detections)
+                modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING,
+                enableSmoothing: true,
+                minPoseScore: 0.15
             },
-            keypointConfidence: 0.20, // Minimum confidence for individual keypoints (0.0 to 1.0, lower = more points detected)
-            maxDetections: 5, // Maximum number of players to detect (1 to 10, higher = more CPU usage)
-            processingInterval: 30, // Minimum time (ms) between detection runs (10 to 100, lower = faster but more CPU)
-            skipFrames: 1, // Base number of frames to skip between detections (0 to 5, 0 = no skip, higher = less CPU usage)
+            keypointConfidence: 0.20,
+            maxDetections: 3,
+            processingInterval: 0,
+            skipFrames: 0,
             dynamicFrameSkipping: {
-                enabled: true, // Enable dynamic frame-skipping (true/false)
-                minSkipFrames: 0, // Minimum frames to skip (0 to 5)
-                maxSkipFrames: 3, // Maximum frames to skip (0 to 5)
-                targetFPS: 30, // Target FPS for dynamic adjustment (20 to 60)
-                highDetectionTimeThreshold: 20, // Detection time (ms) above which skipFrames increases (10 to 50)
-                lowDetectionTimeThreshold: 10, // Detection time (ms) below which skipFrames decreases (5 to 30)
-                fpsThresholdLow: 20, // FPS below which skipFrames increases (10 to 50)
-                fpsThresholdHigh: 40 // FPS above which skipFrames decreases (30 to 60)
+                enabled: true,
+                minSkipFrames: 0,
+                maxSkipFrames: 2,
+                targetFPS: 58,
+                highDetectionTimeThreshold: 15,
+                lowDetectionTimeThreshold: 8,
+                fpsThresholdLow: 50,
+                fpsThresholdHigh: 59
             },
-            useWebGL2: true, // Use WebGL2 for faster processing (true/false, false may improve compatibility)
+            useWebGL2: true,
+            useOffscreenCanvas: typeof OffscreenCanvas !== 'undefined',
             ignoreSelfRegion: {
-                enabled: true, // Ignore the player's own character in detection (true/false)
-                xPercent: 0.00, // X position of ignore region (% of video width, 0.0 to 1.0)
-                yPercent: 0.27, // Y position of ignore region (% of video height, 0.0 to 1.0)
-                widthPercent: 0.37, // Width of ignore region (% of video width, 0.0 to 1.0)
-                heightPercent: 0.74 // Height of ignore region (% of video height, 0.0 to 1.0)
-                // Adjust these to cover your character's position on screen
+                enabled: false,
+                xPercent: 0.00,
+                yPercent: 0.27,
+                widthPercent: 0.37,
+                heightPercent: 0.74
             }
         },
         // Game interaction settings
         game: {
-            videoSelector: 'video[aria-label="Game Stream for unknown title"]', // HTML selector for game video (do not change unless xCloud changes)
-            containerSelector: '#game-stream', // HTML selector for game container (do not change unless xCloud changes)
-            recoilCompensation: true, // Enable manual recoil compensation (true/false)
-            recoilLevel: 1, // Recoil strength level (1 to 5, higher = stronger compensation)
-            // Example: Set recoilLevel to 3 for weapons with moderate recoil
-            recoilPatterns: {
-                1: { vertical: 0.1, horizontal: 0.02, recoverySpeed: 0.25 },
-                2: { vertical: 0.2, horizontal: 0.04, recoverySpeed: 0.20 },
-                3: { vertical: 0.3, horizontal: 0.06, recoverySpeed: 0.15 },
-                4: { vertical: 0.5, horizontal: 0.1, recoverySpeed: 0.12 },
-                5: { vertical: 0.7, horizontal: 0.15, recoverySpeed: 0.10 }
-                // Adjust vertical/horizontal for recoil strength, recoverySpeed for how fast it resets (0.0 to 1.0)
-            },
-            autoShoot: true, // Automatically shoot when crosshair is in target lock (true/false)
+            videoSelector: 'video[aria-label="Game Stream for unknown title"]',
+            containerSelector: '#game-stream',
+            autoShoot: false,
             triggerOptions: {
-                burstMode: false, // Enable burst fire mode (true/false)
-                burstCount: 3, // Number of shots per burst (1 to 10)
-                burstInterval: 100 // Time (ms) between burst shots (50 to 500)
+                burstMode: false,
+                burstCount: 1,
+                burstInterval: 100
             },
             controlOptions: {
-                crouchOnShoot: false, // Crouch when shooting (true/false)
-                crouchKey: 'KeyC', // Key for crouching (e.g., 'KeyC' for C key, see https://keycode.info)
-                reloadKey: 'KeyR', // Key for reloading (e.g., 'KeyR' for R key)
-                weaponKeys: ['Digit1', 'Digit2', 'Digit3', 'Digit4', 'Digit5'] // Keys for weapon slots (e.g., 'Digit1' for 1 key)
-                // Example: Change crouchKey to 'KeyX' to use X for crouching
+                crouchOnShoot: false,
+                crouchKey: 'KeyC',
+                reloadKey: 'KeyR',
+                weaponKeys: ['Digit1', 'Digit2', 'Digit3', 'Digit4', 'Digit5']
             }
         },
         // Aiming settings
         aim: {
-            activationKey: 'KeyE', // Key to activate aimbot (e.g., 'KeyE' for E key, 'KeyQ' for Q, etc.)
-            // Example: Change to 'KeyQ' to use Q key for aiming
-            fovRadius: 250, // Field of view radius (pixels) for target detection (100 to 1000, larger = wider range)
-            instantLock: true, // Instantly lock onto target (true/false, false = smoother but slower)
-            aimPoint: "torso_center", // Target body part: "torso_center", "head", "neck", or "center"
-            headOffset: 0.15, // Vertical offset for head aiming (% of bounding box height, 0.0 to 1.0)
-            bodyOffset: 0.4, // Vertical offset for torso/center aiming (% of bounding box height, 0.0 to 1.0)
-            targetPriority: "center", // Target selection priority: "center" (screen center), "crosshair" (mouse), "distance", or "size"
-            targetSwitchCooldown: 250, // Time (ms) before switching targets (100 to 1000, higher = less frequent switches)
-            triggerThreshold: 0.7, // Auto-shoot distance threshold (% of fovRadius, 0.0 to 1.0, lower = closer range)
-            smoothing: {
-                enabled: false, // Smooth aim movement (true/false)
-                amount: 0.15, // Smoothing strength (0.0 to 1.0, higher = smoother but slower)
-                extrapolation: false // Predict target movement (true/false, experimental)
-            },
-            snapOptions: {
-                strength: 1, // Snap strength (0.0 to 1.0, higher = faster snap)
-                threshold: 0.9, // Snap activation threshold (0.0 to 1.0, lower = easier snap)
-                diminishingRange: false // Reduce snap strength at edges (true/false)
-            }
+            activationKey: 'KeyE',
+            fovRadius: 300,
+            instantLock: false,
+            aimPoint: "torso_center",
+            headOffset: 0.15,
+            bodyOffset: 0.4,
+            targetPriority: "center",
+            targetSwitchCooldown: 10,
+            triggerThreshold: 0.7,
+
+            // --- CUSTOM AIM SETTINGS (Your "one step at a time" logic) ---
+            // These values determine how the mouse moves towards the target.
+            // Tune these for feel and responsiveness.
+            normalMovementSpeed: 0.1, // Fraction of distance to move towards target normally (0.01 to 0.5)
+                                       // A higher value makes it move faster.
+            slowdownThresholdPixels: 50, // Distance in pixels from the target's center to start slowing down.
+                                         // When mouse is within this distance, slowdownSpeedFraction is used.
+            slowdownMovementSpeed: 0.02 // Fraction of distance to move when in slowdownThresholdPixels.
+                                        // A lower value makes it slow down more significantly.
         },
         // Visual overlay settings
         visual: {
-            showDebugInfo: true, // Show debug info on screen (true/false)
+            showDebugInfo: true,
             crosshair: {
-                enabled: true, // Show crosshair (true/false)
-                style: 'dot', // Crosshair style: 'dot', 'cross', or 'circle'
-                color: 'lime', // Crosshair color (e.g., 'lime', 'red', '#FF0000')
-                size: 3, // Crosshair size (pixels, 1 to 10)
-                centerOnGameScreen: true // Center crosshair on game screen (true) or mouse (false)
+                enabled: true,
+                style: 'dot',
+                color: 'lime',
+                size: 3,
+                centerOnGameScreen: true
             },
-            boundingBoxes: { enabled: false }, // Show bounding boxes around targets (true/false)
+            targetDot: { // Blue dot at calculated aim point
+                enabled: true,
+                color: 'blue',
+                radius: 4
+            },
+            boundingBoxes: { enabled: true, color: 'rgba(255,0,0,0.5)', lineWidth: 1, showInfo: false, fromKeypoints: false },
             keypoints: {
-                enabled: false, // Show keypoint dots on targets (true/false)
-                color: 'cyan', // Keypoint color
-                radius: 3 // Keypoint size (pixels, 1 to 10)
+                enabled: false,
+                color: 'cyan',
+                radius: 3
             },
             skeleton: {
-                enabled: false, // Show skeleton lines on targets (true/false)
-                color: 'rgba(255, 0, 255, 0.9)', // Skeleton color
-                lineWidth: 2 // Skeleton line thickness (pixels, 1 to 5)
+                enabled: false,
+                color: 'rgba(255, 0, 255, 0.9)',
+                lineWidth: 2
             },
             targetLock: {
-                enabled: false, // Show lock-on indicator (true/false)
-                color: 'yellow', // Indicator color
-                style: 'corners' // Indicator style: 'corners', 'full', or 'crosshair'
+                enabled: true,
+                color: 'yellow',
+                style: 'corners'
             },
             fovCircle: {
-                enabled: true, // Show FOV circle (true/false)
-                color: 'rgba(255,255,255,0.3)', // Circle color
-                lineWidth: 1, // Circle thickness (pixels, 1 to 5)
-                centerOnGameScreen: true, // Center on game screen (true) or mouse (false)
-                showOnlyWhenAiming: true // Show only when aim key is held (true/false)
+                enabled: true,
+                color: 'rgba(255,255,255,0.3)',
+                lineWidth: 1,
+                centerOnGameScreen: true,
+                showOnlyWhenAiming: true
             },
             performanceMetrics: {
-                enabled: true, // Show FPS and detection time (true/false)
-                position: 'top-left' // Position: 'top-left', 'top-right', 'bottom-left', 'bottom-right'
+                enabled: true,
+                position: 'top-left'
             },
-            showRecoilTunerGUI: false // Show on-screen recoil tuning GUI (true/false)
+            showRecoilTunerGUI: false
         }
     };
-    config.version = '4.2.21'; // Script version (do not change)
-
-    // === ASCII Art Separator ===
-    // This visually separates configuration from debugging for clarity
-    /*
-       _____ _______ _______
-      |  __ \__   __|__   __|
-      | |__) | | |     | |
-      |  _  /  | |     | |
-      | | \ \  | |     | |
-      |_|  \_\ |_|     |_|
-
-      Configuration above, Debugging below
-    */
+    config.version = '5.2.0';
 
     // === Debugging and State Management ===
-    // This section handles internal state and logging. Modify only if you know what you're doing.
-
     const tfState = {
-        backend: 'webgl', // TensorFlow backend (do not change)
-        flags: { WEBGL_VERSION: 2, WEBGL_RENDER_FLOAT32_ENABLED: true } // WebGL settings
+        backend: 'webgl',
+        flags: { WEBGL_VERSION: 2, WEBGL_RENDER_FLOAT32_ENABLED: true }
     };
 
     const state = {
-        gameVideo: null, // Game video element
-        detectionModel: null, // MoveNet model
-        modelLoaded: false, // Model load status
-        currentTarget: null, // Current aim target
-        lastTargetSwitch: 0, // Time of last target switch
-        frameCount: 0, // Frame counter
-        lastDetectionTime: 0, // Last detection timestamp
+        gameVideo: null,
+        detectionModel: null,
+        modelLoaded: false,
+        currentTarget: null,
+        lastTargetSwitch: 0,
+        frameCount: 0,
+        lastDetectionTime: 0,
         performance: {
-            fps: 0, // Current FPS
-            framesThisSecond: 0, // Frames in current second
-            lastFpsUpdate: 0, // Last FPS update time
-            detectionTime: 0, // Last detection duration
-            avgDetectionTime: 0, // Average detection duration
-            detectionTimeHistory: [] // Detection time history
+            fps: 0,
+            framesThisSecond: 0,
+            lastFpsUpdate: 0,
+            detectionTime: 0,
+            avgDetectionTime: 0,
+            detectionTimeHistory: []
         },
         ui: {
-            overlayCanvas: null, // Overlay canvas
-            overlayCtx: null, // Overlay context
-            offscreenCanvas: null, // Offscreen canvas for ignore region
-            offscreenCtx: null // Offscreen context
+            overlayCanvas: null,
+            overlayCtx: null,
+            offscreenCanvas: null, // Used for OffscreenCanvas
+            offscreenCtx: null,    // Used for OffscreenCanvas
         },
         input: {
-            lastMouseX: window.innerWidth / 2, // Last mouse X position
-            lastMouseY: window.innerHeight / 2, // Last mouse Y position
-            leftButtonDown: false, // Left mouse button state
-            rightButtonDown: false, // Right mouse button state
-            activeKeys: new Set() // Active keys
+            lastMouseX: window.innerWidth / 2,
+            lastMouseY: window.innerHeight / 2,
+            leftButtonDown: false,
+            rightButtonDown: false,
+            activeKeys: new Set(),
+            // Removed lastAimErrorX/Y as PD controller is removed
         },
-        recoilState: {
-            active: false, // Recoil compensation active
-            offsetX: 0, // Recoil X offset
-            offsetY: 0, // Recoil Y offset
-            shotsFired: 0, // Shots fired in current burst
-            lastShotTime: 0, // Last shot timestamp
-            lastLeftButtonState: false // Last left button state
-        },
-        isShooting: false, // Shooting status
-        currentWeapon: 0 // Current weapon slot
+        isShooting: false,
+        currentWeapon: 0,
+        lastFrameTime: performance.now() // Used for delta time, but now less critical for PD controller
     };
 
     const debug = {
@@ -216,9 +184,6 @@
     };
 
     // === Utility Functions ===
-    // These functions handle notifications, TensorFlow setup, and model loading.
-
-    // Displays on-screen notifications
     function showNotification(message, type = 'info', duration = 3000) {
         const n = document.createElement('div');
         n.style.cssText = `position:fixed;top:20px;left:50%;transform:translateX(-50%);padding:10px 20px;border-radius:5px;color:white;z-index:1000000;font-family:sans-serif;font-size:16px;box-shadow:0 2px 10px rgba(0,0,0,0.2);background-color:${type === 'error' ? 'rgba(255,0,0,0.8)' : type === 'warning' ? 'rgba(255,165,0,0.8)' : 'rgba(0,0,0,0.7)'};`;
@@ -227,7 +192,6 @@
         setTimeout(() => n.remove(), duration);
     }
 
-    // Sets up TensorFlow.js
     async function setupTensorFlow() {
         try {
             debug.log("Configuring TF.js...");
@@ -248,7 +212,6 @@
         }
     }
 
-    // Loads the MoveNet model
     async function loadDetectionModel() {
         debug.log("Loading MoveNet model...");
         try {
@@ -271,94 +234,98 @@
     }
 
     // === Detection and Targeting Functions ===
-    // These functions handle player detection and aim target calculation.
-
-    // Calculates bounding box from keypoints
     function calculateBoundingBoxFromKeypoints(kps) {
         if (!kps || kps.length === 0) return null;
-        let mX = Infinity, mY = Infinity, mAX = -Infinity, mAY = -Infinity, vK = 0;
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity, validKeypointsCount = 0;
         kps.forEach(k => {
             if (k.score && k.score >= config.detection.keypointConfidence) {
-                mX = Math.min(mX, k.x);
-                mY = Math.min(mY, k.y);
-                mAX = Math.max(mAX, k.x);
-                mAY = Math.max(mAY, k.y);
-                vK++;
+                minX = Math.min(minX, k.x);
+                minY = Math.min(minY, k.y);
+                maxX = Math.max(maxX, k.x);
+                maxY = Math.max(maxY, k.y);
+                validKeypointsCount++;
             }
         });
-        if (vK < 5) return null;
-        const w = mAX - mX, h = mAY - mY, pX = 0.1 * w, pY = 0.1 * h;
-        return { x: Math.max(0, mX - pX), y: Math.max(0, mY - pY), width: mAX - mX + 2 * pX, height: mAY - mY + 2 * pY, validKeypoints: vK };
+        if (validKeypointsCount < 5) return null;
+        const width = maxX - minX, height = maxY - minY, paddingX = 0.1 * width, paddingY = 0.1 * height;
+        return { x: Math.max(0, minX - paddingX), y: Math.max(0, minY - paddingY), width: maxX - minX + 2 * paddingX, height: maxY - minY + 2 * paddingY, validKeypoints: validKeypointsCount };
     }
 
-    // Calculates aim target position
-    function calculateAimTarget(pred, vRect) {
-        const [vBx, vBy, vBw, vBh] = pred.bbox;
-        const sBx = vRect.left + vBx / state.gameVideo.videoWidth * vRect.width;
-        const sBy = vRect.top + vBy / state.gameVideo.videoHeight * vRect.height;
-        const sBw = vBw / state.gameVideo.videoWidth * vRect.width;
-        const sBh = vBh / state.gameVideo.videoHeight * vRect.height;
-        let tX, tY;
-        const kps = pred.keypoints;
-        const gK = n => kps.find(k => k.name === n && k.score >= config.detection.keypointConfidence);
+    function calculateAimTarget(prediction, videoRect) {
+        const [rawX, rawY, rawWidth, rawHeight] = prediction.bbox;
+
+        const screenX = videoRect.left + rawX / state.gameVideo.videoWidth * videoRect.width;
+        const screenY = videoRect.top + rawY / state.gameVideo.videoHeight * videoRect.height;
+        const screenWidth = rawWidth / state.gameVideo.videoWidth * videoRect.width;
+        const screenHeight = rawHeight / state.gameVideo.videoHeight * videoRect.height;
+
+        let targetX, targetY;
+        const keypoints = prediction.keypoints;
+        const getKeypoint = name => keypoints.find(k => k.name === name && k.score >= config.detection.keypointConfidence);
+
         switch (config.aim.aimPoint) {
             case "head":
-                const n = gK('nose'), lE = gK('left_eye'), rE = gK('right_eye');
-                if (n) {
-                    tX = vRect.left + n.x / state.gameVideo.videoWidth * vRect.width;
-                    tY = vRect.top + n.y / state.gameVideo.videoHeight * vRect.height;
-                } else if (lE && rE) {
-                    tX = vRect.left + ((lE.x + rE.x) / 2) / state.gameVideo.videoWidth * vRect.width;
-                    tY = vRect.top + ((lE.y + rE.y) / 2) / state.gameVideo.videoHeight * vRect.height;
+                const nose = getKeypoint('nose'), leftEye = getKeypoint('left_eye'), rightEye = getKeypoint('right_eye');
+                if (nose) {
+                    targetX = videoRect.left + nose.x / state.gameVideo.videoWidth * videoRect.width;
+                    targetY = videoRect.top + nose.y / state.gameVideo.videoHeight * videoRect.height;
+                } else if (leftEye && rightEye) {
+                    targetX = videoRect.left + ((leftEye.x + rightEye.x) / 2) / state.gameVideo.videoWidth * videoRect.width;
+                    targetY = videoRect.top + ((leftEye.y + rightEye.y) / 2) / state.gameVideo.videoHeight * videoRect.height;
                 } else {
-                    tX = sBx + sBw / 2;
-                    tY = sBy + sBh * config.aim.headOffset;
+                    targetX = screenX + screenWidth / 2;
+                    targetY = screenY + screenHeight * config.aim.headOffset;
                 }
                 break;
             case "neck":
-                const lS_n = gK('left_shoulder'), rS_n = gK('right_shoulder');
-                if (lS_n && rS_n) {
-                    tX = vRect.left + ((lS_n.x + rS_n.x) / 2) / state.gameVideo.videoWidth * vRect.width;
-                    tY = vRect.top + ((lS_n.y + rS_n.y) / 2 - vBh * 0.05) / state.gameVideo.videoHeight * vRect.height;
+                const leftShoulder_neck = getKeypoint('left_shoulder'), rightShoulder_neck = getKeypoint('right_shoulder');
+                if (leftShoulder_neck && rightShoulder_neck) {
+                    targetX = videoRect.left + ((leftShoulder_neck.x + rightShoulder_neck.x) / 2) / state.gameVideo.videoWidth * videoRect.width;
+                    targetY = videoRect.top + ((leftShoulder_neck.y + rightShoulder_neck.y) / 2 - screenHeight * 0.05) / state.gameVideo.videoHeight * videoRect.height;
                 } else {
-                    tX = sBx + sBw / 2;
-                    tY = sBy + sBh * (config.aim.headOffset + 0.1);
+                    targetX = screenX + screenWidth / 2;
+                    targetY = screenY + screenHeight * (config.aim.headOffset + 0.1);
                 }
                 break;
             case "torso_center":
-                const lS_t = gK('left_shoulder'), rS_t = gK('right_shoulder'), lH_t = gK('left_hip'), rH_t = gK('right_hip');
-                if (lS_t && rS_t && lH_t && rH_t) {
-                    tX = vRect.left + (((lS_t.x + rS_t.x) / 2 + (lH_t.x + rH_t.x) / 2) / 2) / state.gameVideo.videoWidth * vRect.width;
-                    tY = vRect.top + (((lS_t.y + rS_t.y) / 2 + (lH_t.y + rH_t.y) / 2) / 2) / state.gameVideo.videoHeight * vRect.height;
+                const leftShoulder_torso = getKeypoint('left_shoulder'), rightShoulder_torso = getKeypoint('right_shoulder');
+                const leftHip_torso = getKeypoint('left_hip'), rightHip_torso = getKeypoint('right_hip');
+                if (leftShoulder_torso && rightShoulder_torso && leftHip_torso && rightHip_torso) {
+                    targetX = videoRect.left + (((leftShoulder_torso.x + rightShoulder_torso.x) / 2 + (leftHip_torso.x + rightHip_torso.x) / 2) / 2) / state.gameVideo.videoWidth * videoRect.width;
+                    targetY = videoRect.top + (((leftShoulder_torso.y + rightShoulder_torso.y) / 2 + (leftHip_torso.y + rightHip_torso.y) / 2) / 2) / state.gameVideo.videoHeight * videoRect.height;
                 } else {
-                    tX = sBx + sBw / 2;
-                    tY = sBy + sBh * config.aim.bodyOffset;
+                    targetX = screenX + screenWidth / 2;
+                    targetY = screenY + screenHeight * config.aim.bodyOffset;
                 }
                 break;
             case "center":
             default:
-                tX = sBx + sBw / 2;
-                tY = sBy + sBh / 2;
+                targetX = screenX + screenWidth / 2;
+                targetY = screenY + screenHeight / 2;
                 break;
         }
-        return { x: tX, y: tY, width: sBw, height: sBh, bboxRaw: pred.bbox, keypoints: pred.keypoints };
+        return { x: targetX, y: targetY, width: screenWidth, height: screenHeight, bboxRaw: prediction.bbox, keypoints: prediction.keypoints };
     }
 
-    // Finds the best target based on priority, only considering targets within FOV
     function findBestTarget(predictions, videoRect) {
         if (!predictions || predictions.length === 0 || !state.gameVideo || !videoRect || videoRect.width === 0) return null;
+
         const gameScreenCenterX = videoRect.left + videoRect.width / 2;
         const gameScreenCenterY = videoRect.top + videoRect.height / 2;
+
         let bestTarget = null;
         let bestScore = Infinity;
+
         const fovCenterX = config.visual.fovCircle.centerOnGameScreen ? gameScreenCenterX : state.input.lastMouseX;
         const fovCenterY = config.visual.fovCircle.centerOnGameScreen ? gameScreenCenterY : state.input.lastMouseY;
 
         predictions.forEach(prediction => {
             const targetInfo = calculateAimTarget(prediction, videoRect);
+            if (!targetInfo) return;
+
             const dx_fov = targetInfo.x - fovCenterX;
             const dy_fov = targetInfo.y - fovCenterY;
-            // Only consider targets within FOV
+
             if (Math.sqrt(dx_fov * dx_fov + dy_fov * dy_fov) > config.aim.fovRadius) return;
 
             let referenceX, referenceY;
@@ -369,9 +336,10 @@
                 referenceX = state.input.lastMouseX;
                 referenceY = state.input.lastMouseY;
             }
-            const dx = targetInfo.x - referenceX;
-            const dy = targetInfo.y - referenceY;
-            const distanceToPriorityPoint = Math.sqrt(dx * dx + dy * dy);
+
+            const dx_priority = targetInfo.x - referenceX;
+            const dy_priority = targetInfo.y - referenceY;
+            const distanceToPriorityPoint = Math.sqrt(dx_priority * dx_priority + dy_priority * dy_priority);
 
             let score;
             switch (config.aim.targetPriority) {
@@ -385,6 +353,7 @@
                     score = distanceToPriorityPoint;
                     break;
             }
+
             if (score < bestScore) {
                 bestScore = score;
                 bestTarget = { prediction, screenPosition: targetInfo, distance: distanceToPriorityPoint, score: prediction.score };
@@ -394,8 +363,6 @@
     }
 
     // === Input Controller ===
-    // Handles mouse and keyboard input simulation.
-
     const InputController = {
         init() {
             state.input.lastMouseX = window.innerWidth / 2;
@@ -433,37 +400,74 @@
                 if (e.button === 2) state.input.rightButtonDown = false;
             });
         },
-        moveMouseTo(tSX, tSY) {
+        // --- CUSTOM AIM MOVEMENT ---
+        // This function implements your "one step at a time" logic with slowdown.
+        moveMouseTo(targetScreenX, targetScreenY) {
             if (!state.gameVideo) return;
-            const vR = state.gameVideo.getBoundingClientRect();
-            if (!vR || vR.width === 0) return;
-            const gVCX = vR.left + vR.width / 2;
-            const gVCY = vR.top + vR.height / 2;
-            let mX = tSX - gVCX;
-            let mY = tSY - gVCY;
-            if (Math.abs(mX) < 0.1 && Math.abs(mY) < 0.1 && state.recoilState.offsetX === 0 && state.recoilState.offsetY === 0) return;
-            const sC = document.querySelector(config.game.containerSelector) || state.gameVideo || document.documentElement;
-            const evt = new PointerEvent('pointermove', {
+            const videoRect = state.gameVideo.getBoundingClientRect();
+            if (!videoRect || videoRect.width === 0) return;
+
+            const currentCursorX = state.input.lastMouseX;
+            const currentCursorY = state.input.lastMouseY;
+
+            let errorX = targetScreenX - currentCursorX;
+            let errorY = targetScreenY - currentCursorY;
+
+            // Calculate current distance to target
+            const distanceToTarget = Math.sqrt(errorX * errorX + errorY * errorY);
+
+            // Determine movement speed based on distance
+            let movementFraction;
+            if (distanceToTarget <= config.aim.slowdownThresholdPixels) {
+                // Inside slowdown zone, use slowdown speed
+                movementFraction = config.aim.slowdownMovementSpeed;
+            } else {
+                // Outside slowdown zone, use normal speed
+                movementFraction = config.aim.normalMovementSpeed;
+            }
+
+            // Calculate actual movement for this frame
+            const moveX = errorX * movementFraction;
+            const moveY = errorY * movementFraction;
+
+            // Round movements to whole pixels for dispatching PointerEvent
+            const finalMoveX = Math.round(moveX);
+            const finalMoveY = Math.round(moveY);
+
+            // Only move if there's a significant enough pixel movement
+            if (Math.abs(finalMoveX) < 1 && Math.abs(finalMoveY) < 1 && distanceToTarget < config.aim.slowdownThresholdPixels) {
+                return; // Stop small movements when very close and within slowdown zone
+            }
+
+            // Dispatch PointerEvent to simulate mouse movement
+            const targetElement = document.querySelector(config.game.containerSelector) || state.gameVideo || document.documentElement;
+            const pointerMoveEvent = new PointerEvent('pointermove', {
                 bubbles: true, cancelable: true, view: window,
-                clientX: Math.round(state.input.lastMouseX + mX), clientY: Math.round(state.input.lastMouseY + mY),
-                screenX: Math.round(state.input.lastMouseX + mX), screenY: Math.round(state.input.lastMouseY + mY),
-                movementX: Math.round(mX), movementY: Math.round(mY),
+                clientX: Math.round(currentCursorX + finalMoveX),
+                clientY: Math.round(currentCursorY + finalMoveY),
+                screenX: Math.round(currentCursorX + finalMoveX),
+                screenY: Math.round(currentCursorY + finalMoveY),
+                movementX: finalMoveX, // This is the key for relative movement
+                movementY: finalMoveY,
                 buttons: (state.input.leftButtonDown ? 1 : 0) | (state.input.rightButtonDown ? 2 : 0),
                 pointerType: 'mouse', isPrimary: true
             });
-            sC.dispatchEvent(evt);
+            targetElement.dispatchEvent(pointerMoveEvent);
+
+            // Update internal mouse position to reflect the dispatched movement
+            state.input.lastMouseX += finalMoveX;
+            state.input.lastMouseY += finalMoveY;
         },
         startShooting() {
             if (state.isShooting) return;
-            const sC = document.querySelector(config.game.containerSelector) || state.gameVideo || document.documentElement;
-            const evt = new PointerEvent('pointerdown', {
+            const targetElement = document.querySelector(config.game.containerSelector) || state.gameVideo || document.documentElement;
+            const pointerDownEvent = new PointerEvent('pointerdown', {
                 bubbles: true, cancelable: true, view: window,
                 clientX: Math.round(state.input.lastMouseX), clientY: Math.round(state.input.lastMouseY),
                 button: 0, buttons: 1, pointerType: 'mouse', isPrimary: true
             });
-            sC.dispatchEvent(evt);
+            targetElement.dispatchEvent(pointerDownEvent);
             state.isShooting = true;
-            state.recoilState.shotsFired = 0;
             debug.log("Shooting started (simulated by aimbot)");
             if (config.game.controlOptions.crouchOnShoot && !state.input.activeKeys.has(config.game.controlOptions.crouchKey)) {
                 this.pressKey(config.game.controlOptions.crouchKey, 0);
@@ -471,80 +475,78 @@
         },
         stopShooting() {
             if (!state.isShooting) return;
-            const sC = document.querySelector(config.game.containerSelector) || state.gameVideo || document.documentElement;
-            const evt = new PointerEvent('pointerup', {
+            const targetElement = document.querySelector(config.game.containerSelector) || state.gameVideo || document.documentElement;
+            const pointerUpEvent = new PointerEvent('pointerup', {
                 bubbles: true, cancelable: true, view: window,
                 clientX: Math.round(state.input.lastMouseX), clientY: Math.round(state.input.lastMouseY),
                 button: 0, buttons: 0, pointerType: 'mouse', isPrimary: true
             });
-            sC.dispatchEvent(evt);
+            targetElement.dispatchEvent(pointerUpEvent);
             state.isShooting = false;
             debug.log("Shooting stopped (simulated by aimbot)");
             if (config.game.controlOptions.crouchOnShoot && state.input.activeKeys.has(config.game.controlOptions.crouchKey)) {
                 this.releaseKey(config.game.controlOptions.crouchKey);
             }
         },
-        pressKey(kC, dur = 50) {
-            const k = kC.replace(/^(Key|Digit)/, '');
-            const eT = document.activeElement || document.body;
-            const dE = new KeyboardEvent('keydown', {
-                code: kC, key: k, keyCode: kC.startsWith('Digit') ? parseInt(k) : k.length === 1 ? k.charCodeAt(0) : 0,
+        pressKey(keyCode, duration = 50) {
+            const keyChar = keyCode.replace(/^(Key|Digit)/, '');
+            const targetElement = document.activeElement || document.body;
+            const keyDownEvent = new KeyboardEvent('keydown', {
+                code: keyCode, key: keyChar, keyCode: keyCode.startsWith('Digit') ? parseInt(keyChar) + 48 : keyChar.length === 1 ? keyChar.charCodeAt(0) : 0,
                 bubbles: true, cancelable: true, view: window
             });
-            eT.dispatchEvent(dE);
-            state.input.activeKeys.add(kC);
-            if (dur > 0) setTimeout(() => this.releaseKey(kC), dur);
+            targetElement.dispatchEvent(keyDownEvent);
+            state.input.activeKeys.add(keyCode);
+            if (duration > 0) setTimeout(() => this.releaseKey(keyCode), duration);
         },
-        releaseKey(kC) {
-            const k = kC.replace(/^(Key|Digit)/, '');
-            const eT = document.activeElement || document.body;
-            const uE = new KeyboardEvent('keyup', {
-                code: kC, key: k, keyCode: kC.startsWith('Digit') ? parseInt(k) : k.length === 1 ? k.charCodeAt(0) : 0,
+        releaseKey(keyCode) {
+            const keyChar = keyCode.replace(/^(Key|Digit)/, '');
+            const targetElement = document.activeElement || document.body;
+            const keyUpEvent = new KeyboardEvent('keyup', {
+                code: keyCode, key: keyChar, keyCode: keyCode.startsWith('Digit') ? parseInt(keyChar) + 48 : keyChar.length === 1 ? keyChar.charCodeAt(0) : 0,
                 bubbles: true, cancelable: true, view: window
             });
-            eT.dispatchEvent(uE);
-            state.input.activeKeys.delete(kC);
+            targetElement.dispatchEvent(keyUpEvent);
+            state.input.activeKeys.delete(keyCode);
         },
         reload() {
             this.pressKey(config.game.controlOptions.reloadKey, 50);
             debug.log("Reload key pressed");
         },
-        switchWeapon(sI) {
-            if (sI >= 0 && sI < config.game.controlOptions.weaponKeys.length) {
-                this.pressKey(config.game.controlOptions.weaponKeys[sI], 50);
-                state.currentWeapon = sI;
-                debug.log(`Switched to weapon slot ${sI + 1}`);
+        switchWeapon(slotIndex) {
+            if (slotIndex >= 0 && slotIndex < config.game.controlOptions.weaponKeys.length) {
+                this.pressKey(config.game.controlOptions.weaponKeys[slotIndex], 50);
+                state.currentWeapon = slotIndex;
+                debug.log(`Switched to weapon slot ${slotIndex + 1}`);
             }
         }
     };
 
     // === Visual Rendering Functions ===
-    // These functions handle the overlay canvas and visual elements.
-
     function createOverlayCanvas() {
         if (state.ui.overlayCanvas) return;
-        const c = document.createElement('canvas');
-        c.id = 'xcloud-aimbot-overlay';
-        c.width = window.innerWidth;
-        c.height = window.innerHeight;
-        c.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;pointer-events:none;z-index:99999;';
-        state.ui.overlayCanvas = c;
-        state.ui.overlayCtx = c.getContext('2d');
-        document.body.appendChild(c);
+        const canvas = document.createElement('canvas');
+        canvas.id = 'xcloud-aimbot-overlay';
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        canvas.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;pointer-events:none;z-index:99999;';
+        state.ui.overlayCanvas = canvas;
+        state.ui.overlayCtx = canvas.getContext('2d');
+        document.body.appendChild(canvas);
         window.addEventListener('resize', () => {
-            c.width = window.innerWidth;
-            c.height = window.innerHeight;
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
         });
         debug.log("Overlay canvas created");
     }
 
-    function drawCrosshair(vR) {
+    function drawCrosshair(videoRect) {
         if (!state.ui.overlayCtx || !config.visual.crosshair.enabled) return;
         const ctx = state.ui.overlayCtx;
         let cX, cY;
-        if (config.visual.crosshair.centerOnGameScreen && vR && vR.width > 0) {
-            cX = vR.left + vR.width / 2;
-            cY = vR.top + vR.height / 2;
+        if (config.visual.crosshair.centerOnGameScreen && videoRect && videoRect.width > 0) {
+            cX = videoRect.left + videoRect.width / 2;
+            cY = videoRect.top + videoRect.height / 2;
         } else {
             cX = state.input.lastMouseX;
             cY = state.input.lastMouseY;
@@ -556,10 +558,8 @@
         switch (config.visual.crosshair.style) {
             case 'cross':
                 ctx.beginPath();
-                ctx.moveTo(cX - 2 * s, cY);
-                ctx.lineTo(cX + 2 * s, cY);
-                ctx.moveTo(cX, cY - 2 * s);
-                ctx.lineTo(cX, cY + 2 * s);
+                ctx.moveTo(cX - 2 * s, cY); ctx.lineTo(cX + 2 * s, cY);
+                ctx.moveTo(cX, cY - 2 * s); ctx.lineTo(cX, cY + 2 * s);
                 ctx.stroke();
                 break;
             case 'dot':
@@ -576,15 +576,15 @@
         return { x: cX, y: cY };
     }
 
-    function drawKeypoints(ps, vR) {
-        if (!config.visual.keypoints.enabled || !state.ui.overlayCtx || !ps || ps.length === 0 || !vR) return;
+    function drawKeypoints(players, videoRect) {
+        if (!config.visual.keypoints.enabled || !state.ui.overlayCtx || !players || players.length === 0 || !videoRect) return;
         const ctx = state.ui.overlayCtx;
-        ps.forEach(p => {
+        players.forEach(p => {
             if (p.keypoints) {
                 p.keypoints.forEach(kP => {
                     if (kP.score && kP.score >= config.detection.keypointConfidence) {
-                        const sX = vR.left + kP.x / state.gameVideo.videoWidth * vR.width;
-                        const sY = vR.top + kP.y / state.gameVideo.videoHeight * vR.height;
+                        const sX = videoRect.left + kP.x / state.gameVideo.videoWidth * videoRect.width;
+                        const sY = videoRect.top + kP.y / state.gameVideo.videoHeight * videoRect.height;
                         ctx.beginPath();
                         ctx.arc(sX, sY, config.visual.keypoints.radius, 0, 2 * Math.PI);
                         ctx.fillStyle = config.visual.keypoints.color;
@@ -595,28 +595,28 @@
         });
     }
 
-    function drawBoundingBoxes(ps, vR) {
-        if (!config.visual.boundingBoxes.enabled || !state.ui.overlayCtx || !ps || ps.length === 0 || !vR) return;
+    function drawBoundingBoxes(players, videoRect) {
+        if (!config.visual.boundingBoxes.enabled || !state.ui.overlayCtx || !players || players.length === 0 || !videoRect) return;
         const ctx = state.ui.overlayCtx;
-        ps.forEach(p => {
-            const [vBx, vBy, vBw, vBh] = p.bbox;
-            const sX = vR.left + vBx / state.gameVideo.videoWidth * vR.width;
-            const sY = vR.top + vBy / state.gameVideo.videoHeight * vR.height;
-            const sW = vBw / state.gameVideo.videoWidth * vR.width;
-            const sH = vBh / state.gameVideo.videoHeight * vR.height;
+        players.forEach(p => {
+            const [rawX, rawY, rawWidth, rawHeight] = p.bbox;
+            const screenX = videoRect.left + rawX / state.gameVideo.videoWidth * videoRect.width;
+            const screenY = videoRect.top + rawY / state.gameVideo.videoHeight * videoRect.height;
+            const screenWidth = rawWidth / state.gameVideo.videoWidth * videoRect.width;
+            const screenHeight = rawHeight / state.gameVideo.videoHeight * videoRect.height;
+
             ctx.strokeStyle = config.visual.boundingBoxes.color;
             ctx.lineWidth = config.visual.boundingBoxes.lineWidth;
-            ctx.fillStyle = config.visual.boundingBoxes.fillColor;
-            ctx.fillRect(sX, sY, sW, sH);
-            ctx.strokeRect(sX, sY, sW, sH);
+            ctx.strokeRect(screenX, screenY, screenWidth, screenHeight);
+
             if (config.visual.boundingBoxes.showInfo) {
                 ctx.fillStyle = config.visual.boundingBoxes.color;
                 ctx.font = '12px Arial';
-                const sT = `${(100 * p.score).toFixed(0)}%`;
-                ctx.fillText(sT, sX + 5, sY + 15);
+                const scoreText = `${(100 * p.score).toFixed(0)}%`;
+                ctx.fillText(scoreText, screenX + 5, screenY + 15);
                 if (p.keypoints && config.visual.boundingBoxes.fromKeypoints) {
-                    const kC = p.keypoints.filter(kP => kP.score >= config.detection.keypointConfidence).length;
-                    ctx.fillText(`KPs: ${kC}`, sX + 5, sY + 30);
+                    const keypointsConfCount = p.keypoints.filter(kP => kP.score >= config.detection.keypointConfidence).length;
+                    ctx.fillText(`KPs: ${keypointsConfCount}`, screenX + 5, screenY + 30);
                 }
             }
         });
@@ -626,6 +626,8 @@
         ['left_shoulder', 'right_shoulder'], ['left_hip', 'right_hip'], ['left_shoulder', 'left_hip'], ['right_shoulder', 'right_hip'],
         ['left_shoulder', 'left_elbow'], ['left_elbow', 'left_wrist'], ['right_shoulder', 'right_elbow'], ['right_elbow', 'right_wrist'],
         ['left_hip', 'left_knee'], ['left_knee', 'left_ankle'], ['right_hip', 'right_knee'], ['right_knee', 'right_ankle'],
+        ['nose', 'left_eye'], ['left_eye', 'left_ear'], ['nose', 'right_eye'], ['right_eye', 'right_ear'],
+        ['left_ear', 'left_shoulder'], ['right_ear', 'right_shoulder']
     ];
 
     function drawSkeleton(players, videoRect) {
@@ -658,50 +660,52 @@
         });
     }
 
-    function drawTargetLockIndicator(t, vR) {
-        if (!config.visual.targetLock.enabled || !state.ui.overlayCtx || !t || !vR) return null;
+    function drawTargetLockIndicator(targetInfo, videoRect) {
+        if (!config.visual.targetLock.enabled || !state.ui.overlayCtx || !targetInfo || !videoRect) return null;
         const ctx = state.ui.overlayCtx;
-        const [vBx, vBy, vBw, vBh] = t.prediction.bbox;
-        const bSX = vR.left + vBx / state.gameVideo.videoWidth * vR.width;
-        const bSY = vR.top + vBy / state.gameVideo.videoHeight * vR.height;
-        const bSW = vBw / state.gameVideo.videoWidth * vR.width;
-        const bSH = vBh / state.gameVideo.videoHeight * vR.height;
+        const [rawX, rawY, rawWidth, rawHeight] = targetInfo.prediction.bbox;
+        const screenX = videoRect.left + rawX / state.gameVideo.videoWidth * videoRect.width;
+        const screenY = videoRect.top + rawY / state.gameVideo.videoHeight * videoRect.height;
+        const screenWidth = rawWidth / state.gameVideo.videoWidth * videoRect.width;
+        const screenHeight = rawHeight / state.gameVideo.videoHeight * videoRect.height;
+
         ctx.strokeStyle = config.visual.targetLock.color;
         ctx.lineWidth = 2;
-        const cS = 0.2 * Math.min(bSW, bSH);
+        const cornerSize = 0.2 * Math.min(screenWidth, screenHeight);
+        const crosshairSize = 10;
+
         switch (config.visual.targetLock.style) {
             case 'full':
-                ctx.strokeRect(bSX, bSY, bSW, bSH);
+                ctx.strokeRect(screenX, screenY, screenWidth, screenHeight);
                 break;
             case 'corners':
                 ctx.beginPath();
-                ctx.moveTo(bSX + cS, bSY); ctx.lineTo(bSX, bSY); ctx.lineTo(bSX, bSY + cS);
-                ctx.moveTo(bSX + bSW - cS, bSY); ctx.lineTo(bSX + bSW, bSY); ctx.lineTo(bSX + bSW, bSY + cS);
-                ctx.moveTo(bSX + cS, bSY + bSH); ctx.lineTo(bSX, bSY + bSH); ctx.lineTo(bSX, bSY + bSH - cS);
-                ctx.moveTo(bSX + bSW - cS, bSY + bSH); ctx.lineTo(bSX + bSW, bSY + bSH); ctx.lineTo(bSX + bSW, bSY + bSH - cS);
+                ctx.moveTo(screenX + cornerSize, screenY); ctx.lineTo(screenX, screenY); ctx.lineTo(screenX, screenY + cornerSize);
+                ctx.moveTo(screenX + screenWidth - cornerSize, screenY); ctx.lineTo(screenX + screenWidth, screenY); ctx.lineTo(screenX + screenWidth, screenY + cornerSize);
+                ctx.moveTo(screenX + cornerSize, screenY + screenHeight); ctx.lineTo(screenX, screenY + screenHeight); ctx.lineTo(screenX, screenY + screenHeight - cornerSize);
+                ctx.moveTo(screenX + screenWidth - cornerSize, screenY + screenHeight); ctx.lineTo(screenX + screenWidth, screenY + screenHeight); ctx.lineTo(screenX + screenWidth, screenY + screenHeight - cornerSize);
                 ctx.stroke();
                 break;
             case 'crosshair':
-                const cSz = 10;
                 ctx.beginPath();
-                ctx.moveTo(t.screenPosition.x - cSz, t.screenPosition.y);
-                ctx.lineTo(t.screenPosition.x + cSz, t.screenPosition.y);
-                ctx.moveTo(t.screenPosition.x, t.screenPosition.y - cSz);
-                ctx.lineTo(t.screenPosition.x, t.screenPosition.y + cSz);
+                ctx.moveTo(targetInfo.screenPosition.x - crosshairSize, targetInfo.screenPosition.y);
+                ctx.lineTo(targetInfo.screenPosition.x + crosshairSize, targetInfo.screenPosition.y);
+                ctx.moveTo(targetInfo.screenPosition.x, targetInfo.screenPosition.y - crosshairSize);
+                ctx.lineTo(targetInfo.screenPosition.x, targetInfo.screenPosition.y + crosshairSize);
                 ctx.stroke();
                 break;
         }
-        return { x: bSX, y: bSY, width: bSW, height: bSH };
+        return { x: screenX, y: screenY, width: screenWidth, height: screenHeight };
     }
 
-    function drawFOVCircle(vR) {
+    function drawFOVCircle(videoRect) {
         if (!config.visual.fovCircle.enabled || !state.ui.overlayCtx) return;
         if (config.visual.fovCircle.showOnlyWhenAiming && !state.input.activeKeys.has(config.aim.activationKey)) return;
         const ctx = state.ui.overlayCtx;
         let cX, cY;
-        if (config.visual.fovCircle.centerOnGameScreen && vR && vR.width > 0) {
-            cX = vR.left + vR.width / 2;
-            cY = vR.top + vR.height / 2;
+        if (config.visual.fovCircle.centerOnGameScreen && videoRect && videoRect.width > 0) {
+            cX = videoRect.left + videoRect.width / 2;
+            cY = videoRect.top + videoRect.height / 2;
         } else {
             cX = state.input.lastMouseX;
             cY = state.input.lastMouseY;
@@ -713,55 +717,64 @@
         ctx.stroke();
     }
 
+    // NEW: Function to draw the target dot
+    function drawTargetDot(targetInfo) {
+        if (!config.visual.targetDot.enabled || !state.ui.overlayCtx || !targetInfo) return;
+        const ctx = state.ui.overlayCtx;
+        ctx.beginPath();
+        ctx.arc(targetInfo.screenPosition.x, targetInfo.screenPosition.y, config.visual.targetDot.radius, 0, 2 * Math.PI);
+        ctx.fillStyle = config.visual.targetDot.color;
+        ctx.fill();
+    }
+
     function drawPerformanceMetrics() {
         if (!config.visual.performanceMetrics.enabled || !state.ui.overlayCtx) return;
         const ctx = state.ui.overlayCtx;
-        const ms = [
+        const metrics = [
             `FPS: ${state.performance.fps}`,
             `Detect: ${state.performance.detectionTime.toFixed(1)}ms (Avg: ${state.performance.avgDetectionTime.toFixed(1)}ms)`,
             `Skip Frames: ${config.detection.skipFrames}`
         ];
         ctx.font = '14px Arial';
         ctx.fillStyle = 'rgba(0,255,0,0.8)';
-        const lH = 16;
-        let sX = 10, sY = 20;
+        const lineHeight = 16;
+        let startX = 10, startY = 20;
         switch (config.visual.performanceMetrics.position) {
             case 'top-right':
-                sX = state.ui.overlayCanvas.width - 200;
+                startX = state.ui.overlayCanvas.width - 200;
                 break;
             case 'bottom-left':
-                sY = state.ui.overlayCanvas.height - ms.length * lH - 10;
+                startY = state.ui.overlayCanvas.height - metrics.length * lineHeight - 10;
                 break;
             case 'bottom-right':
-                sX = state.ui.overlayCanvas.width - 200;
-                sY = state.ui.overlayCanvas.height - ms.length * lH - 10;
+                startX = state.ui.overlayCanvas.width - 200;
+                startY = state.ui.overlayCanvas.height - metrics.length * lineHeight - 10;
                 break;
         }
-        ms.forEach((m, i) => ctx.fillText(m, sX, sY + i * lH));
+        metrics.forEach((metric, i) => ctx.fillText(metric, startX, startY + i * lineHeight));
     }
 
     function drawDebugInfo() {
         if (!config.visual.showDebugInfo || !state.ui.overlayCtx) return;
         const ctx = state.ui.overlayCtx;
         const aimingActive = state.input.activeKeys.has(config.aim.activationKey);
-        const dL = [
+        const debugLines = [
             `Target: ${state.currentTarget ? `Yes (Score: ${state.currentTarget.score.toFixed(2)})` : "No"}`,
             `Shooting: ${state.isShooting ? "Yes" : "No"} | Aiming (${config.aim.activationKey.replace('Key', '')})${aimingActive ? " (Active)" : " (Inactive)"}`,
-            `Recoil X: ${state.recoilState.offsetX.toFixed(2)} Y: ${state.recoilState.offsetY.toFixed(2)}`,
             `OS Mouse: X:${state.input.lastMouseX.toFixed(0)} Y:${state.input.lastMouseY.toFixed(0)}`
         ];
         ctx.font = '12px Arial';
         ctx.fillStyle = 'rgba(255,255,0,0.8)';
-        const lH = 15;
-        let sY = 80;
+        const lineHeight = 15;
+        let startY = 80;
         if (config.visual.performanceMetrics.enabled && config.visual.performanceMetrics.position === 'top-left') {
-            sY = 20 + (state.performance.fps > 0 ? 3 : 2) * 16 + 20;
+            startY = 20 + (state.performance.fps > 0 ? 3 : 2) * 16 + 20;
         }
-        let sX = 10;
-        if (config.visual.performanceMetrics.enabled && config.visual.performanceMetrics.position === 'bottom-left' && config.visual.showDebugInfo) {
-            sY = state.ui.overlayCanvas.height - (state.performance.fps > 0 ? 3 : 2) * 16 - 10 - dL.length * lH - 10;
+        let startX = 10;
+        if (config.visual.performanceMetrics.enabled && (config.visual.performanceMetrics.position === 'bottom-left' || config.visual.performanceMetrics.position === 'bottom-right') && config.visual.showDebugInfo) {
+            startY = state.ui.overlayCanvas.height - (state.performance.fps > 0 ? 3 : 2) * 16 - 10 - debugLines.length * lineHeight - 10;
         }
-        dL.forEach((l, i) => ctx.fillText(l, sX, sY + i * lH));
+        debugLines.forEach((line, i) => ctx.fillText(line, startX, startY + i * lineHeight));
     }
 
     function drawVisuals(players, currentTarget, hasTargetInFOV) {
@@ -772,33 +785,43 @@
         const videoRect = state.gameVideo ? state.gameVideo.getBoundingClientRect() : null;
         const isAimKeyHeld = state.input.activeKeys.has(config.aim.activationKey);
 
-        // Always draw crosshair and FOV circle (if enabled and aim key is held)
-        const crosshairPos = config.visual.crosshair.enabled ? drawCrosshair(videoRect) : null;
-        if (config.visual.fovCircle.enabled && (!config.visual.fovCircle.showOnlyWhenAiming || isAimKeyHeld)) {
-            drawFOVCircle(videoRect);
-        }
+        const crosshairPos = drawCrosshair(videoRect);
+        drawFOVCircle(videoRect);
+        drawPerformanceMetrics();
+        drawDebugInfo();
 
-        // Draw performance metrics and debug info regardless of targets
-        if (config.visual.performanceMetrics.enabled) drawPerformanceMetrics();
-        if (config.visual.showDebugInfo) drawDebugInfo();
+        if (isAimKeyHeld && hasTargetInFOV && videoRect && videoRect.width > 0) {
+            drawKeypoints(players, videoRect);
+            drawSkeleton(players, videoRect);
+            drawBoundingBoxes(players, videoRect);
 
-        // Only draw player-related visuals if there is a target in FOV and aim key is held
-        if (hasTargetInFOV && isAimKeyHeld && videoRect && videoRect.width > 0) {
-            if (config.visual.keypoints.enabled) drawKeypoints(players, videoRect);
-            if (config.visual.skeleton.enabled) drawSkeleton(players, videoRect);
+            if (config.visual.targetDot.enabled && currentTarget) {
+                drawTargetDot(currentTarget);
+            }
+
             if (config.visual.targetLock.enabled && currentTarget) {
                 const targetLockRect = drawTargetLockIndicator(currentTarget, videoRect);
-                // Check if crosshair is inside target lock for instant shooting
-                if (config.game.autoShoot && crosshairPos && targetLockRect && isAimKeyHeld) {
+
+                if (config.game.autoShoot && crosshairPos && targetLockRect) {
                     const { x: cX, y: cY } = crosshairPos;
                     const { x: tX, y: tY, width: tW, height: tH } = targetLockRect;
+
                     if (cX >= tX && cX <= tX + tW && cY >= tY && cY <= tY + tH) {
                         if (!state.isShooting) {
                             InputController.startShooting();
+                        } else if (config.game.triggerOptions.burstMode) {
+                            const now = performance.now();
+                            if (now - state.recoilState.lastShotTime > config.game.triggerOptions.burstInterval) {
+                                InputController.stopShooting();
+                                InputController.startShooting();
+                                state.recoilState.lastShotTime = now;
+                            }
                         }
                     } else if (state.isShooting && !config.game.triggerOptions.burstMode) {
                         InputController.stopShooting();
                     }
+                } else if (state.isShooting && !config.game.triggerOptions.burstMode) {
+                    InputController.stopShooting();
                 }
             }
         } else if (state.isShooting && !config.game.triggerOptions.burstMode) {
@@ -806,68 +829,12 @@
         }
     }
 
-    // === Recoil and Aiming Logic ===
-    // Handles recoil compensation and aiming mechanics.
-
-    function applyRecoilCompensation() {
-        if (!config.game.recoilCompensation) {
-            if (state.recoilState.offsetX !== 0 || state.recoilState.offsetY !== 0) {
-                const rS = config.game.recoilPatterns[config.game.recoilLevel] || config.game.recoilPatterns[1];
-                state.recoilState.offsetX *= (1 - rS.recoverySpeed);
-                state.recoilState.offsetY *= (1 - rS.recoverySpeed);
-                if (Math.abs(state.recoilState.offsetX) < 0.01) state.recoilState.offsetX = 0;
-                if (Math.abs(state.recoilState.offsetY) < 0.01) state.recoilState.offsetY = 0;
-            }
-            return;
-        }
-        const rS = config.game.recoilPatterns[config.game.recoilLevel] || config.game.recoilPatterns[1];
-        const now = performance.now();
-        if (state.input.leftButtonDown && !state.recoilState.lastLeftButtonState) {
-            state.recoilState.shotsFired = 0;
-            state.recoilState.active = true;
-        }
-        state.recoilState.lastLeftButtonState = state.input.leftButtonDown;
-        if (state.input.leftButtonDown && state.recoilState.active) {
-            if (state.recoilState.shotsFired === 0 || now - state.recoilState.lastShotTime > 200) {
-                const kM = 1.0;
-                state.recoilState.offsetY = -(rS.vertical * kM);
-                state.recoilState.offsetX = (Math.random() - 0.5) * 2 * rS.horizontal * kM;
-            } else {
-                state.recoilState.offsetY -= rS.vertical * (0.2 + 0.5 * Math.random());
-                state.recoilState.offsetX += (Math.random() - 0.5) * rS.horizontal * 1.5;
-            }
-            state.recoilState.offsetY = Math.max(state.recoilState.offsetY, -(rS.vertical * 4));
-            state.recoilState.offsetX = Math.min(Math.abs(state.recoilState.offsetX), rS.horizontal * 2.5) * (state.recoilState.offsetX < 0 ? -1 : 1);
-            if ((Math.abs(state.recoilState.offsetX) > 0.01 || Math.abs(state.recoilState.offsetY) > 0.01) && state.gameVideo) {
-                const evt = new PointerEvent('pointermove', {
-                    bubbles: true, cancelable: true, view: window,
-                    movementX: Math.round(state.recoilState.offsetX), movementY: Math.round(state.recoilState.offsetY),
-                    buttons: (state.input.leftButtonDown ? 1 : 0) | (state.input.rightButtonDown ? 2 : 0),
-                    pointerType: 'mouse', isPrimary: true
-                });
-                (document.querySelector(config.game.containerSelector) || state.gameVideo || document.documentElement).dispatchEvent(evt);
-            }
-            state.recoilState.shotsFired++;
-            state.recoilState.lastShotTime = now;
-            state.recoilState.offsetX *= (1 - (rS.recoverySpeed * 1.5));
-            state.recoilState.offsetY *= (1 - (rS.recoverySpeed * 1.5));
-        } else {
-            state.recoilState.active = false;
-            if (state.recoilState.offsetX !== 0 || state.recoilState.offsetY !== 0) {
-                state.recoilState.offsetX *= (1 - rS.recoverySpeed);
-                state.recoilState.offsetY *= (1 - rS.recoverySpeed);
-                if (Math.abs(state.recoilState.offsetX) < 0.01) state.recoilState.offsetX = 0;
-                if (Math.abs(state.recoilState.offsetY) < 0.01) state.recoilState.offsetY = 0;
-            }
-        }
-    }
-
-    async function processAiming(timestamp) {
-        if (config.game.recoilCompensation) {
-            applyRecoilCompensation();
-        }
+    // === Main Loop and Initialization ===
+    async function processAimingLoop(timestamp) {
         const isAimKeyHeld = state.input.activeKeys.has(config.aim.activationKey);
-        if (!isAimKeyHeld || !config.detection.enabled || !state.modelLoaded) {
+        const shouldRunDetection = config.detection.enabled && (isAimKeyHeld || (config.game.autoShoot && !isAimKeyHeld));
+
+        if (!shouldRunDetection) {
             state.currentTarget = null;
             drawVisuals([], null, false);
             if (state.isShooting && !config.game.triggerOptions.burstMode) {
@@ -875,6 +842,7 @@
             }
             return;
         }
+
         const videoRect = state.gameVideo ? state.gameVideo.getBoundingClientRect() : null;
         const players = await detectPlayers(videoRect);
         const newTarget = findBestTarget(players, videoRect);
@@ -894,7 +862,9 @@
         } else {
             state.currentTarget = null;
         }
+
         drawVisuals(players, state.currentTarget, hasTargetInFOV);
+
         if (state.currentTarget) {
             let { x: targetX, y: targetY } = state.currentTarget.screenPosition;
             InputController.moveMouseTo(targetX, targetY);
@@ -910,61 +880,70 @@
             state.gameVideo.videoWidth === 0 || state.gameVideo.videoHeight === 0 || !videoRect) {
             return [];
         }
+
+        state.frameCount++;
         if (state.frameCount % (config.detection.skipFrames + 1) !== 0) {
-            state.frameCount++;
             return [];
         }
-        state.frameCount++;
+
         const now = performance.now();
         if (now - state.lastDetectionTime < config.detection.processingInterval) {
             return [];
         }
+
         let videoSource = state.gameVideo;
-        if (config.detection.ignoreSelfRegion.enabled) {
+
+        // --- Use OffscreenCanvas for AI processing if supported and enabled ---
+        if (config.detection.useOffscreenCanvas && config.detection.enabled && state.gameVideo.videoWidth > 0 && state.gameVideo.videoHeight > 0) {
             if (!state.ui.offscreenCanvas) {
-                state.ui.offscreenCanvas = document.createElement('canvas');
+                state.ui.offscreenCanvas = new OffscreenCanvas(state.gameVideo.videoWidth, state.gameVideo.videoHeight);
                 state.ui.offscreenCtx = state.ui.offscreenCanvas.getContext('2d');
-            }
-            if (state.ui.offscreenCanvas.width !== state.gameVideo.videoWidth || state.ui.offscreenCanvas.height !== state.gameVideo.videoHeight) {
+                debug.log("OffscreenCanvas created for AI processing.");
+            } else if (state.ui.offscreenCanvas.width !== state.gameVideo.videoWidth || state.ui.offscreenCanvas.height !== state.gameVideo.videoHeight) {
                 state.ui.offscreenCanvas.width = state.gameVideo.videoWidth;
                 state.ui.offscreenCanvas.height = state.gameVideo.videoHeight;
+                debug.log("OffscreenCanvas resized for AI processing.");
             }
-            const ctx = state.ui.offscreenCtx;
-            ctx.drawImage(state.gameVideo, 0, 0, state.gameVideo.videoWidth, state.gameVideo.videoHeight);
-            const region = config.detection.ignoreSelfRegion;
-            const rectX = state.gameVideo.videoWidth * region.xPercent;
-            const rectY = state.gameVideo.videoHeight * region.yPercent;
-            const rectW = state.gameVideo.videoWidth * region.widthPercent;
-            const rectH = state.gameVideo.videoHeight * region.heightPercent;
-            ctx.fillStyle = 'rgba(0, 0, 0, 1)';
-            ctx.fillRect(rectX, rectY, rectW, rectH);
-            videoSource = state.ui.offscreenCanvas;
+            // Draw current video frame onto offscreen canvas
+            state.ui.offscreenCtx.drawImage(state.gameVideo, 0, 0, state.gameVideo.videoWidth, state.gameVideo.videoHeight);
+
+            // Apply ignore self region on the offscreen canvas (will be drawn black)
+            if (config.detection.ignoreSelfRegion.enabled) {
+                const region = config.detection.ignoreSelfRegion;
+                const rectX = state.gameVideo.videoWidth * region.xPercent;
+                const rectY = state.gameVideo.videoHeight * region.yPercent;
+                const rectW = state.gameVideo.videoWidth * region.widthPercent;
+                const rectH = state.gameVideo.videoHeight * region.heightPercent;
+                state.ui.offscreenCtx.fillStyle = 'rgba(0, 0, 0, 1)';
+                state.ui.offscreenCtx.fillRect(rectX, rectY, rectW, rectH);
+            }
+            videoSource = state.ui.offscreenCanvas; // AI model uses this offscreen canvas as its input source
+        } else if (config.detection.ignoreSelfRegion.enabled) {
+            debug.warn("OffscreenCanvas not available or not used. Ignore Self Region might not work as intended or impact performance.");
         }
+
         try {
             const detectionStart = performance.now();
+            // Perform pose estimation on the chosen video source (main video element or offscreen canvas)
             const poses = await state.detectionModel.estimatePoses(videoSource, { flipHorizontal: false });
             const detectionEnd = performance.now();
             state.performance.detectionTime = detectionEnd - detectionStart;
+
             state.performance.detectionTimeHistory.push(state.performance.detectionTime);
             if (state.performance.detectionTimeHistory.length > 30) state.performance.detectionTimeHistory.shift();
             state.performance.avgDetectionTime = state.performance.detectionTimeHistory.reduce((a, b) => a + b, 0) / state.performance.detectionTimeHistory.length;
             state.lastDetectionTime = now;
 
-            // Dynamic Frame-Skipping Logic
             if (config.detection.dynamicFrameSkipping.enabled) {
                 const dynConfig = config.detection.dynamicFrameSkipping;
                 const prevSkipFrames = config.detection.skipFrames;
                 
-                // Increase skipFrames if performance is poor
                 if (state.performance.avgDetectionTime > dynConfig.highDetectionTimeThreshold || state.performance.fps < dynConfig.fpsThresholdLow) {
                     config.detection.skipFrames = Math.min(config.detection.skipFrames + 1, dynConfig.maxSkipFrames);
-                }
-                // Decrease skipFrames if performance is good
-                else if (state.performance.avgDetectionTime < dynConfig.lowDetectionTimeThreshold && state.performance.fps > dynConfig.fpsThresholdHigh) {
+                } else if (state.performance.avgDetectionTime < dynConfig.lowDetectionTimeThreshold && state.performance.fps > dynConfig.fpsThresholdHigh) {
                     config.detection.skipFrames = Math.max(config.detection.skipFrames - 1, dynConfig.minSkipFrames);
                 }
                 
-                // Log changes to skipFrames
                 if (prevSkipFrames !== config.detection.skipFrames) {
                     debug.log(`Dynamic frame-skipping adjusted: skipFrames=${config.detection.skipFrames} (FPS: ${state.performance.fps}, Avg Detect: ${state.performance.avgDetectionTime.toFixed(1)}ms)`);
                 }
@@ -979,12 +958,11 @@
                     if (pose.score && pose.score >= config.detection.detectorConfig.minPoseScore) {
                         const bbox = calculateBoundingBoxFromKeypoints(pose.keypoints);
                         if (bbox && bbox.width > 0 && bbox.height > 0) {
-                            // Calculate center of bounding box in screen coordinates
-                            const sX = videoRect.left + (bbox.x + bbox.width / 2) / state.gameVideo.videoWidth * videoRect.width;
-                            const sY = videoRect.top + (bbox.y + bbox.height / 2) / state.gameVideo.videoHeight * videoRect.height;
-                            const dx_fov = sX - fovCenterX;
-                            const dy_fov = sY - fovCenterY;
-                            // Only include poses within FOV
+                            const screenBboxCenterX = videoRect.left + (bbox.x + bbox.width / 2) / state.gameVideo.videoWidth * videoRect.width;
+                            const screenBboxCenterY = videoRect.top + (bbox.y + bbox.height / 2) / state.gameVideo.videoHeight * videoRect.height;
+                            const dx_fov = screenBboxCenterX - fovCenterX;
+                            const dy_fov = screenBboxCenterY - fovCenterY;
+
                             if (Math.sqrt(dx_fov * dx_fov + dy_fov * dy_fov) <= config.aim.fovRadius) {
                                 results.push({ class: 'person', score: pose.score, bbox: [bbox.x, bbox.y, bbox.width, bbox.height], keypoints: pose.keypoints });
                             }
@@ -999,94 +977,51 @@
         }
     }
 
-    // === GUI and Initialization ===
-    // Handles the recoil tuning GUI and aimbot startup.
-
-    function createRecoilTuningGUI() {
-        if (!config.visual.showRecoilTunerGUI) return;
-        const guiContainer = document.createElement('div');
-        guiContainer.id = 'aimbot-recoil-gui';
-        guiContainer.style.cssText = `position: fixed; top: 280px; right: 10px; background-color: rgba(30, 30, 30, 0.85); border: 1px solid #555; border-radius: 5px; padding: 10px; color: white; font-family: Arial, sans-serif; font-size: 12px; z-index: 1000001; display: flex; flex-direction: column; gap: 8px; width: 250px;`;
-        guiContainer.innerHTML = '<h4 style="margin:0 0 8px 0; text-align:center; font-size: 14px;">Anti-Recoil Tuner</h4>';
-        const levelDiv = document.createElement('div');
-        levelDiv.style.display = 'flex';
-        levelDiv.style.alignItems = 'center';
-        levelDiv.style.justifyContent = 'space-between';
-        const levelLabel = document.createElement('label');
-        levelLabel.textContent = 'Recoil Level:';
-        levelLabel.htmlFor = 'recoilLevelSlider';
-        levelLabel.style.marginRight = '8px';
-        levelLabel.style.whiteSpace = 'nowrap';
-        const levelSlider = document.createElement('input');
-        levelSlider.type = 'range';
-        levelSlider.id = 'recoilLevelSlider';
-        levelSlider.min = 1;
-        levelSlider.max = 5;
-        levelSlider.step = 1;
-        levelSlider.value = config.game.recoilLevel;
-        levelSlider.style.width = '100px';
-        levelSlider.style.flexGrow = '1';
-        const levelValueDisplay = document.createElement('span');
-        levelValueDisplay.textContent = config.game.recoilLevel;
-        levelValueDisplay.style.marginLeft = '8px';
-        levelValueDisplay.style.width = '24px';
-        levelValueDisplay.style.textAlign = 'right';
-        levelSlider.addEventListener('input', () => {
-            config.game.recoilLevel = parseInt(levelSlider.value);
-            levelValueDisplay.textContent = levelSlider.value;
-            debug.log(`Recoil level set to: ${config.game.recoilLevel}`);
-        });
-        levelDiv.appendChild(levelLabel);
-        levelDiv.appendChild(levelSlider);
-        levelDiv.appendChild(levelValueDisplay);
-        guiContainer.appendChild(levelDiv);
-        document.body.appendChild(guiContainer);
-        debug.log("Recoil tuning GUI created.");
-    }
-
     function startAimbotLoop() {
         debug.log("Starting main aimbot loop");
-        let loopActive = true;
         async function mainLoop(timestamp) {
-            if (!loopActive) return;
             requestAnimationFrame(mainLoop);
+
             state.performance.framesThisSecond++;
             if (timestamp - state.performance.lastFpsUpdate >= 1000) {
                 state.performance.fps = state.performance.framesThisSecond;
                 state.performance.framesThisSecond = 0;
                 state.performance.lastFpsUpdate = timestamp;
             }
+
             if (!state.gameVideo || state.gameVideo.paused || state.gameVideo.ended || state.gameVideo.videoWidth === 0) {
                 if (state.isShooting) InputController.stopShooting();
                 if (state.ui.overlayCtx) state.ui.overlayCtx.clearRect(0, 0, state.ui.overlayCanvas.width, state.ui.overlayCanvas.height);
                 state.currentTarget = null;
                 return;
             }
-            await processAiming(timestamp);
+            await processAimingLoop(timestamp);
         }
         requestAnimationFrame(mainLoop);
     }
 
     async function initializeAimbot() {
         debug.log(`Initializing Aimbot V${config.version} (MoveNet)...`);
+
         state.gameVideo = document.querySelector(config.game.videoSelector);
         if (!state.gameVideo) {
-            debug.error("Game video element not found. Retrying...");
+            debug.error("Game video element not found. Retrying in 3 seconds...");
             showNotification("Error: Game video not found! Aimbot cannot start.", "error", 5000);
             setTimeout(initializeAimbot, 3000);
             return;
         }
         debug.log("Game video element found:", state.gameVideo);
+
         if (state.gameVideo.readyState < state.gameVideo.HAVE_METADATA) {
             debug.log("Waiting for video metadata...");
             try {
-                await new Promise((rs, rj) => {
-                    state.gameVideo.onloadedmetadata = rs;
-                    state.gameVideo.onerror = rj;
+                await new Promise((resolve, reject) => {
+                    state.gameVideo.onloadedmetadata = resolve;
+                    state.gameVideo.onerror = reject;
                 });
                 debug.log(`Video metadata loaded: ${state.gameVideo.videoWidth}x${state.gameVideo.videoHeight}`);
-            } catch (vE) {
-                debug.error("Error loading video metadata:", vE);
+            } catch (videoError) {
+                debug.error("Error loading video metadata:", videoError);
                 showNotification("Error loading video. Aimbot might not work correctly.", "error");
                 setTimeout(initializeAimbot, 5000);
                 return;
@@ -1094,21 +1029,23 @@
         } else {
             debug.log(`Video dimensions readily available: ${state.gameVideo.videoWidth}x${state.gameVideo.videoHeight}`);
         }
+
         createOverlayCanvas();
-        if (config.visual.showRecoilTunerGUI) {
-            createRecoilTuningGUI();
-        }
         if (!InputController.init()) {
             debug.error("Input controller failed to initialize.");
             showNotification("Error: Input controller init failed!", "error");
             return;
         }
+
         if (config.detection.enabled) {
-            if (!await loadDetectionModel()) debug.error("Detection model (MoveNet) failed to load. Detection features disabled.");
+            if (!await loadDetectionModel()) {
+                debug.error("Detection model (MoveNet) failed to load. Detection features disabled.");
+            }
         } else {
-            debug.log("Detection is disabled in config.");
+            debug.log("AI Detection is disabled in config.");
             showNotification("AI Detection is disabled.", "info");
         }
+
         startAimbotLoop();
         debug.log("Aimbot (MoveNet) initialized and main loop started.");
         showNotification(`Precision Aimbot V${config.version} (MoveNet) Initialized!`, "info");
