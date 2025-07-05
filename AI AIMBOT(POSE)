@@ -1,7 +1,6 @@
 // ==UserScript==
 // @name         execute this inside developer tools dont use in tampermonkey
-// @description  works on chromebooks windows and linux, performance of the aimbot depends on how well your device is and if the wobbling gets annoying then set dynamicframeskipping to 1 as the min and 5 as the max, this entire script except some of the configing and me removing the double slashes except ones that actually help show you what each feature does so it looks more normal
-// @author       wesd
+// @description  works on chromebooks windows and linux, performance of the aimbot depends on how well your device is and if the wobbling gets annoying then set dynamicframeskipping to 1 as the min and 5 as the max
 // @version      4.2.21
 // @match        *://*.xbox.com/play/*
 // @grant        none
@@ -11,6 +10,7 @@
 // @require      https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-webgl@3.18.0/dist/tf-backend-webgl.min.js
 // @require      https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@2.0.0/dist/pose-detection.min.js
 // ==/UserScript==
+// your supposed to execute this in dev tools console the ai that i was using to make this made it a tampermonkey script dont get it confused pls and complain about how it isnt working cause you put it in tampermonkey and not dev tools console
 
 (function() {
     'use strict';
