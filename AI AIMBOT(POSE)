@@ -36,7 +36,7 @@
             dynamicFrameSkipping: {
                 enabled: true, // Enable dynamic frame-skipping (true/false)
                 minSkipFrames: 0, // Minimum frames to skip (0 to 5)
-                maxSkipFrames: 0, // Maximum frames to skip (0 to 5)
+                maxSkipFrames: 2, // Maximum frames to skip (0 to 5)
                 targetFPS: 58, // Target FPS for dynamic adjustment (20 to 60)
                 highDetectionTimeThreshold: 10, // Detection time (ms) above which skipFrames increases (10 to 50)
                 lowDetectionTimeThreshold: 10, // Detection time (ms) below which skipFrames decreases (5 to 30)
@@ -91,12 +91,12 @@
             aimPoint: "torso_center", // Target body part: "torso_center", "head", "neck", or "center"
             headOffset: 0.15, // Vertical offset for head aiming (% of bounding box height, 0.0 to 1.0)
             bodyOffset: 0.4, // Vertical offset for torso/center aiming (% of bounding box height, 0.0 to 1.0)
-            targetPriority: "center", // Target selection priority: "center" (screen center), "crosshair" (mouse), "distance", or "size"
+            targetPriority: "crosshair", // Target selection priority: "center" (screen center), "crosshair" (mouse), "distance", or "size"
             targetSwitchCooldown: 1, // Time (ms) before switching targets (100 to 1000, higher = less frequent switches)
             triggerThreshold: 0.7, // Auto-shoot distance threshold (% of fovRadius, 0.0 to 1.0, lower = closer range)
             smoothing: {
                 enabled: true, // Smooth aim movement (true/false)
-                amount: 12.0, // Smoothing strength (0.0 to 1.0, higher = smoother but slower)
+                amount: 8.0, // Smoothing strength (0.0 to 1.0, higher = smoother but slower)
                 extrapolation: false // Predict target movement (true/false, experimental)
             },
             snapOptions: {
