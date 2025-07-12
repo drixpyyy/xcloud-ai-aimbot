@@ -29,4 +29,8 @@ best model yet, has 2x better performance and aiming and very guud but still nee
 
 ## GFN MODELS
 
-i use xcloud more so these might not update faster or it might be older because gfn is a money hungry faggot company that crashes on the free version when u try to open fortnite but ill try to get it working or keep up to date incase yall like it
+i use xcloud more so these might not update faster or it might be older because gfn is a money hungry faggot company that crashes on the free version when u try to open fortnite but ill try to get it working or keep up to date incase yall like it but most likely never working
+
+## EXPERIMENTAL MODELS
+
+The soon better models that may have bugs but i will be working on these more and lesser on the current version
