@@ -13,7 +13,7 @@ also this should work for geforce now but i never tested it, EVERY TIME you refr
 
 ## Settings
 
-Aim Intveral: Changes how fast the ai is, 350 is recommended for performance reasons but if u got a good pc u can try lower
+use common sense
 
 basically everything else you should know like aim speed fov size etc
 
