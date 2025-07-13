@@ -31,7 +31,6 @@
     // --- Start Dependency Loading Chain ---
     console.log("[XcloudAimbot] Starting dependency loading...");
 
-    // Load TensorFlow.js core first, then converter, then webgl backend, sequentially.
     loadScript('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-core@4.20.0/dist/tf-core.min.js')
     .then(() => {
         console.log("[XcloudAimbot] tf-core loaded.");
@@ -64,7 +63,7 @@
 
         class ConfigManager {
             static config = {
-                version: '5.1.3',
+                version: '5.2.0',
                 detection: {
                     enabled: true,
                     modelType: poseDetection.SupportedModels.MoveNet,
@@ -74,23 +73,27 @@
                         minPoseScore: 0.1,
                     },
                     keypointConfidence: 0.1,
-                    maxDetections: 3,
+                    maxDetections: 1,
                     processingInterval: 0,
                     skipFrames: 2,
                     dynamicFrameSkipping: {
                         enabled: true,
                         minSkipFrames: 0,
-                        maxSkipFrames: 2,
+                        maxSkipFrames: 5,
                         targetFPS: 58,
-                        highDetectionTimeThreshold: 15,
-                        lowDetectionTimeThreshold: 8,
-                        fpsThresholdLow: 55,
+                        highDetectionTimeThreshold: 20,
+                        lowDetectionTimeThreshold: 10,
+                        fpsThresholdLow: 50,
                         fpsThresholdHigh: 59
                     },
                     useWebGL2: true,
                     ignoreSelfRegion: {
                         enabled: false,
                         xPercent: 0.00, yPercent: 0.27, widthPercent: 0.37, heightPercent: 0.74
+                    },
+                    performance: {
+                        lowSpecMode: false,
+                        useOffscreenCanvas: true,
                     }
                 },
                 game: {
@@ -106,8 +109,8 @@
                 },
                 aim: {
                     activationKey: 'KeyQ',
-                    fovRadius: 200,
-                    instantLock: true,
+                    fovRadius: 150,
+                    instantLock: false,
                     aimPoint: "torso_center",
                     headOffset: 0.15,
                     bodyOffset: 0.4,
@@ -119,12 +122,18 @@
                         amount: 8.0,
                         extrapolation: false
                     },
+                    slowdown: {
+                        enabled: false,
+                        amount: 2.0,
+                        onAimPartOnly: true,
+                        threshold: 10,
+                    },
                     snapOptions: { strength: 0.1, threshold: 0.9, diminishingRange: false },
                     predictionEnabled: false,
                     predictionAlpha: 0.5
                 },
                 visual: {
-                    showDebugInfo: true,
+                    showDebugInfo: false,
                     crosshair: {
                         enabled: true, style: 'dot', color: 'lime', size: 3, centerOnGameScreen: true
                     },
@@ -146,7 +155,7 @@
 
             static load() {
                 try {
-                    const savedConfig = JSON.parse(localStorage.getItem('xcloudAimbotConfig_v5_1_3'));
+                    const savedConfig = JSON.parse(localStorage.getItem('xcloudAimbotConfig_v5_2_0'));
                     if (savedConfig) {
                         this.config = this.deepMerge(this.config, savedConfig);
                     }
@@ -157,7 +166,7 @@
 
             static save() {
                 try {
-                    localStorage.setItem('xcloudAimbotConfig_v5_1_3', JSON.stringify(this.config));
+                    localStorage.setItem('xcloudAimbotConfig_v5_2_0', JSON.stringify(this.config));
                 } catch (e) {
                     Logger.error("Failed to save config to localStorage:", e);
                 }
@@ -207,9 +216,9 @@
                                 controller = folder.add(obj, key, 0, 500, 1);
                             } else if (key.includes('Offset') || key.includes('Confidence') || key.includes('Alpha')) {
                                 controller = folder.add(obj, key, 0.0, 1.0, 0.01);
-                            } else if (key.includes('Amount') || key.includes('Strength')) {
+                            } else if (key.includes('amount') || key.includes('strength')) {
                                  controller = folder.add(obj, key, 0.1, 20.0, 0.1);
-                            } else if (key.includes('Interval') || key.includes('Cooldown') || key.includes('Threshold')) {
+                            } else if (key.includes('Interval') || key.includes('Cooldown') || key.includes('threshold')) {
                                  controller = folder.add(obj, key, 0, 1000, 10);
                             } else if (key.includes('skipFrames') || key.includes('Count') || key.includes('maxDetections')) {
                                  controller = folder.add(obj, key, 0, 10, 1);
@@ -237,7 +246,8 @@
                             }
                         } else if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
                             const subFolder = folder.addFolder(key.charAt(0).toUpperCase() + key.slice(1));
-                            addControls(subFolder, value, fullPath);
+                             addControls(subFolder, value, fullPath);
+                             subFolder.close();
                         }
                     }
                 };
@@ -246,6 +256,7 @@
                     if (!ConfigManager.config.hasOwnProperty(section) || section === 'version') continue;
                     const folder = gui.addFolder(section.charAt(0).toUpperCase() + section.slice(1));
                     addControls(folder, ConfigManager.config[section], section);
+                    folder.close();
                 }
 
                 gui.onChange(() => {
@@ -332,11 +343,43 @@
 
                 let movementX = targetScreenX - gameScreenCenterX;
                 let movementY = targetScreenY - gameScreenCenterY;
+                
+                let slowdownFactor = 1.0;
+                if (ConfigManager.config.aim.slowdown.enabled && StateManager.currentTarget) {
+                    const slowCfg = ConfigManager.config.aim.slowdown;
+                    const distanceToTarget = Math.sqrt(
+                        Math.pow(StateManager.input.lastMouseX - StateManager.currentTarget.screenPosition.x, 2) +
+                        Math.pow(StateManager.input.lastMouseY - StateManager.currentTarget.screenPosition.y, 2)
+                    );
+                    
+                    let applySlowdown = false;
+                    if(slowCfg.onAimPartOnly){
+                         if(distanceToTarget < slowCfg.threshold) {
+                             applySlowdown = true;
+                         }
+                    } else {
+                        const mouseOnBbox = 
+                            StateManager.input.lastMouseX >= StateManager.currentTarget.screenPosition.bbox.x &&
+                            StateManager.input.lastMouseX <= StateManager.currentTarget.screenPosition.bbox.x + StateManager.currentTarget.screenPosition.bbox.width &&
+                            StateManager.input.lastMouseY >= StateManager.currentTarget.screenPosition.bbox.y &&
+                            StateManager.input.lastMouseY <= StateManager.currentTarget.screenPosition.bbox.y + StateManager.currentTarget.screenPosition.bbox.height;
+                        if(mouseOnBbox){
+                            applySlowdown = true;
+                        }
+                    }
+
+                    if(applySlowdown){
+                        slowdownFactor = slowCfg.amount;
+                    }
+                }
 
                 if (ConfigManager.config.aim.smoothing.enabled) {
                     const smoothAmount = ConfigManager.config.aim.smoothing.amount;
-                    movementX = movementX / smoothAmount;
-                    movementY = movementY / smoothAmount;
+                    movementX /= (smoothAmount * slowdownFactor);
+                    movementY /= (smoothAmount * slowdownFactor);
+                } else {
+                    movementX /= slowdownFactor;
+                    movementY /= slowdownFactor;
                 }
 
                 if (Math.abs(movementX) < 0.1 && Math.abs(movementY) < 0.1) {
@@ -440,6 +483,33 @@
                     return false;
                 }
             }
+            
+             getDynamicSkipFrames() {
+                let skipFrames = ConfigManager.config.detection.skipFrames;
+                if (ConfigManager.config.detection.dynamicFrameSkipping.enabled) {
+                    const dynConfig = ConfigManager.config.detection.dynamicFrameSkipping;
+                    
+                    if(ConfigManager.config.detection.performance.lowSpecMode){
+                       skipFrames = Math.max(skipFrames, 3); 
+                       dynConfig.highDetectionTimeThreshold = 25;
+                       dynConfig.fpsThresholdLow = 45;
+                    }
+
+                    if (StateManager.performance.avgDetectionTime > dynConfig.highDetectionTimeThreshold) {
+                        skipFrames = Math.min(skipFrames + 1, dynConfig.maxSkipFrames);
+                    } else if (StateManager.performance.avgDetectionTime < dynConfig.lowDetectionTimeThreshold) {
+                        skipFrames = Math.max(skipFrames - 1, dynConfig.minSkipFrames);
+                    }
+
+                    if (StateManager.performance.fps < dynConfig.fpsThresholdLow && StateManager.performance.fps > 0) {
+                        skipFrames = Math.min(skipFrames + 1, dynConfig.maxSkipFrames);
+                    } else if (StateManager.performance.fps > dynConfig.fpsThresholdHigh) {
+                        skipFrames = Math.max(skipFrames - 1, dynConfig.minSkipFrames);
+                    }
+                }
+                return skipFrames;
+            }
+
 
             async detectPlayers(videoElement, videoRect) {
                 if (!videoElement || !StateManager.modelLoaded || !StateManager.detectionModel ||
@@ -452,34 +522,15 @@
                     return [];
                 }
 
-                if (ConfigManager.config.detection.dynamicFrameSkipping.enabled) {
-                    const dynConfig = ConfigManager.config.detection.dynamicFrameSkipping;
-                    const prevSkipFrames = ConfigManager.config.detection.skipFrames;
-
-                    if (StateManager.performance.avgDetectionTime > dynConfig.highDetectionTimeThreshold) {
-                        ConfigManager.config.detection.skipFrames = Math.min(ConfigManager.config.detection.skipFrames + 1, dynConfig.maxSkipFrames);
-                    } else if (StateManager.performance.avgDetectionTime < dynConfig.lowDetectionTimeThreshold) {
-                        ConfigManager.config.detection.skipFrames = Math.max(ConfigManager.config.detection.skipFrames - 1, dynConfig.minSkipFrames);
-                    }
-
-                    if (StateManager.performance.fps < dynConfig.fpsThresholdLow) {
-                        ConfigManager.config.detection.skipFrames = Math.min(ConfigManager.config.detection.skipFrames + 1, dynConfig.maxSkipFrames);
-                    } else if (StateManager.performance.fps > dynConfig.fpsThresholdHigh) {
-                        ConfigManager.config.detection.skipFrames = Math.max(ConfigManager.config.detection.skipFrames - 1, dynConfig.minSkipFrames);
-                    }
-
-                    if (prevSkipFrames !== ConfigManager.config.detection.skipFrames) {
-                        // Logger.log removed, as requested
-                    }
-                }
+                const currentSkipFrames = this.getDynamicSkipFrames();
 
                 StateManager.frameCount++;
-                if (StateManager.frameCount % (ConfigManager.config.detection.skipFrames + 1) !== 0) {
+                if (StateManager.frameCount % (currentSkipFrames + 1) !== 0) {
                     return [];
                 }
 
                 let videoSource = videoElement;
-                if (ConfigManager.config.detection.ignoreSelfRegion.enabled) {
+                if (ConfigManager.config.detection.ignoreSelfRegion.enabled && ConfigManager.config.detection.performance.useOffscreenCanvas) {
                     if (!StateManager.ui.offscreenCanvas) {
                         StateManager.ui.offscreenCanvas = document.createElement('canvas');
                         StateManager.ui.offscreenCtx = StateManager.ui.offscreenCanvas.getContext('2d');
@@ -505,13 +556,11 @@
                 let detectionStart = 0;
                 try {
                     detectionStart = performance.now();
-                    poses = tf.tidy(() => {
-                        return StateManager.detectionModel.estimatePoses(videoSource, { flipHorizontal: false });
-                    });
-                    if (poses instanceof Promise) poses = await poses;
+                    poses = await StateManager.detectionModel.estimatePoses(videoSource, { flipHorizontal: false });
 
                 } catch (err) {
                     Logger.error("Error during pose estimation:", err);
+                    tf.dispose(poses);
                     return [];
                 }
                 const detectionEnd = performance.now();
@@ -542,7 +591,9 @@
                         }
                     }
                 }
-                return results.slice(0, ConfigManager.config.detection.maxDetections);
+                tf.dispose(poses);
+                const maxDetections = ConfigManager.config.detection.performance.lowSpecMode ? 1 : ConfigManager.config.detection.maxDetections;
+                return results.slice(0, maxDetections);
             }
 
             calculateBoundingBoxFromKeypoints(kps) {
@@ -624,8 +675,7 @@
                 const targetInfo = {
                     x: targetX,
                     y: targetY,
-                    width: screenBboxWidth,
-                    height: screenBboxHeight,
+                    bbox: { x: screenBboxX, y: screenBboxY, width: screenBboxWidth, height: screenBboxHeight},
                     bboxRaw: prediction.bbox,
                     keypoints: prediction.keypoints
                 };
@@ -745,10 +795,13 @@
                 if (ConfigManager.config.visual.performanceMetrics.enabled) this.drawPerformanceMetrics();
                 if (ConfigManager.config.visual.showDebugInfo) this.drawDebugInfo();
 
-                if (hasTargetInFOV && isAimKeyHeld && videoRect && videoRect.width > 0) {
+                if (hasTargetInFOV && isAimKeyHeld && videoRect && videoRect.width > 0 && !ConfigManager.config.detection.performance.lowSpecMode) {
                     if (ConfigManager.config.visual.keypoints.enabled) this.drawKeypoints(players, videoRect);
                     if (ConfigManager.config.visual.skeleton.enabled) this.drawSkeleton(players, videoRect);
-                    if (ConfigManager.config.visual.targetLock.enabled && currentTarget) {
+                }
+                
+                if (isAimKeyHeld && currentTarget && videoRect && videoRect.width > 0){
+                     if (ConfigManager.config.visual.targetLock.enabled) {
                         this.drawTargetLockIndicator(currentTarget, videoRect);
                     }
                 }
@@ -797,8 +850,8 @@
                                 const sX = videoRect.left + kP.x / StateManager.gameVideo.videoWidth * videoRect.width;
                                 const sY = videoRect.top + kP.y / StateManager.gameVideo.videoHeight * videoRect.height;
                                 ctx.beginPath();
-                                ctx.arc(sX, sY, ConfigManager.config.visual.keypoints.radius, 0, 2 * Math.PI);
-                                ctx.fillStyle = ConfigManager.config.visual.keypoints.color;
+                                ctx.arc(sX, sY, 2, 0, 2 * Math.PI);
+                                ctx.fillStyle = 'red';
                                 ctx.fill();
                             }
                         });
@@ -808,8 +861,8 @@
 
             drawSkeleton(players, videoRect) {
                 const ctx = StateManager.ui.overlayCtx;
-                ctx.strokeStyle = ConfigManager.config.visual.skeleton.color;
-                ctx.lineWidth = ConfigManager.config.visual.skeleton.lineWidth;
+                ctx.strokeStyle = 'white';
+                ctx.lineWidth = 1;
                 const targetingSystemInstance = new TargetingSystem();
                 players.forEach(player => {
                     if (player.keypoints) {
@@ -838,11 +891,8 @@
 
             drawTargetLockIndicator(target, videoRect) {
                 const ctx = StateManager.ui.overlayCtx;
-                const [vBx, vBy, vBw, vBh] = target.prediction.bbox;
-                const bSX = videoRect.left + vBx / StateManager.gameVideo.videoWidth * videoRect.width;
-                const bSY = videoRect.top + vBy / StateManager.gameVideo.videoHeight * videoRect.height;
-                const bSW = vBw / StateManager.gameVideo.videoWidth * videoRect.width;
-                const bSH = vBh / StateManager.gameVideo.videoHeight * videoRect.height;
+                const {x: bSX, y: bSY, width: bSW, height: bSH} = target.screenPosition.bbox;
+
                 ctx.strokeStyle = ConfigManager.config.visual.targetLock.color;
                 ctx.lineWidth = 2;
                 const cornerSize = 0.2 * Math.min(bSW, bSH);
@@ -890,7 +940,7 @@
                 const messages = [
                     `FPS: ${StateManager.performance.fps}`,
                     `Detect: ${StateManager.performance.detectionTime.toFixed(1)}ms (Avg: ${StateManager.performance.avgDetectionTime.toFixed(1)}ms)`,
-                    `Skip Frames: ${ConfigManager.config.detection.skipFrames}`
+                    `Skip Frames: ${this.targetingSystemInstance.getDynamicSkipFrames()}`
                 ];
                 ctx.font = '14px Arial';
                 ctx.fillStyle = 'rgba(0,255,0,0.8)';
@@ -905,6 +955,7 @@
             }
 
             drawDebugInfo() {
+                if(!this.targetingSystemInstance) this.targetingSystemInstance = new TargetingSystem();
                 const ctx = StateManager.ui.overlayCtx;
                 const aimingActive = StateManager.input.activeKeys.has(ConfigManager.config.aim.activationKey);
                 const debugLines = [
@@ -918,12 +969,17 @@
                 ctx.fillStyle = 'rgba(255,255,0,0.8)';
                 const lineHeight = 15;
                 let startY = 80;
-                if (ConfigManager.config.visual.performanceMetrics.enabled && ConfigManager.config.visual.performanceMetrics.position === 'top-left') {
-                    startY = 20 + (StateManager.performance.fps > 0 ? 3 : 2) * 16 + 20;
+                if (ConfigManager.config.visual.performanceMetrics.enabled && ConfigManager.config.visual.performanceMetrics.position.startsWith('top-')) {
+                    startY = 20 + 3 * 16 + 20;
                 }
                 let startX = 10;
-                if (ConfigManager.config.visual.performanceMetrics.enabled && ConfigManager.config.visual.performanceMetrics.position === 'bottom-left' && ConfigManager.config.visual.showDebugInfo) {
-                    startY = StateManager.ui.overlayCanvas.height - (StateManager.performance.fps > 0 ? 3 : 2) * 16 - 10 - debugLines.length * lineHeight - 10;
+                 if (ConfigManager.config.visual.performanceMetrics.position.endsWith('-left')) {
+                   startX = 10;
+                } else {
+                   startX = StateManager.ui.overlayCanvas.width - 200;
+                }
+                 if (ConfigManager.config.visual.performanceMetrics.position.startsWith('bottom-')) {
+                    startY = StateManager.ui.overlayCanvas.height - 3 * 16 - 10 - debugLines.length * lineHeight - 10;
                 }
                 debugLines.forEach((line, i) => ctx.fillText(line, startX, startY + i * lineHeight));
             }
@@ -956,19 +1012,21 @@
                 this.inputHandler = new InputHandler();
                 this.targetingSystem = new TargetingSystem();
                 this.overlayRenderer = new OverlayRenderer();
+                this.overlayRenderer.targetingSystemInstance = this.targetingSystem; // Share instance
                 this.animationFrameId = null;
             }
 
             async initialize() {
                 Logger.log(`Initializing XcloudAimbot V${ConfigManager.config.version}...`);
 
-                StateManager.gameVideo = document.querySelector(ConfigManager.config.game.videoSelector);
+                StateManager.gameVideo = await this.findVideoElement();
                 if (!StateManager.gameVideo) {
-                    Logger.error("Game video element not found. Retrying...");
-                    Logger.notify("Error: Game video not found! Aimbot cannot start.", "error", 5000);
-                    setTimeout(() => this.initialize(), 3000);
-                    return;
+                     Logger.error("Game video element not found after multiple retries. Aimbot cannot start.");
+                     Logger.notify("FATAL: Game Video not found. Aimbot stopped.", "error", 10000);
+                     return;
                 }
+                
+                Logger.log("Game video element found:", StateManager.gameVideo);
 
                 if (StateManager.gameVideo.readyState < StateManager.gameVideo.HAVE_METADATA) {
                     try {
@@ -999,11 +1057,20 @@
                 this.startAimbotLoop();
                 Logger.notify(`XcloudAimbot V${ConfigManager.config.version} Initialized!`, "info");
             }
+            
+            async findVideoElement(retries = 5, delay = 2000){
+                for(let i = 0; i < retries; i++){
+                    const video = document.querySelector(ConfigManager.config.game.videoSelector);
+                    if(video) return video;
+                    Logger.warn(`Game video not found. Retrying in ${delay/1000}s... (${i+1}/${retries})`);
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                }
+                return null;
+            }
 
             startAimbotLoop() {
+                if(this.animationFrameId) this.stopAimbotLoop();
                 const mainLoop = async (timestamp) => {
-                    if (!this.animationFrameId) return;
-
                     StateManager.performance.framesThisSecond++;
                     if (timestamp - StateManager.performance.lastFpsUpdate >= 1000) {
                         StateManager.performance.fps = StateManager.performance.framesThisSecond;
@@ -1017,11 +1084,9 @@
                         StateManager.currentTarget = null;
                         StateManager.lastKnownTargetPosition = null;
                         StateManager.targetVelocity = { x: 0, y: 0 };
-                        this.animationFrameId = requestAnimationFrame(mainLoop);
-                        return;
+                    } else {
+                         await this.processAiming(timestamp);
                     }
-
-                    await this.processAiming(timestamp);
                     this.animationFrameId = requestAnimationFrame(mainLoop);
                 };
                 this.animationFrameId = requestAnimationFrame(mainLoop);
@@ -1056,10 +1121,10 @@
                     const now = performance.now();
                     if (!StateManager.currentTarget || newTarget.prediction !== StateManager.currentTarget.prediction ||
                         now - StateManager.lastTargetSwitch > ConfigManager.config.aim.targetSwitchCooldown) {
-                        // Logger.log removed, as requested
                         StateManager.currentTarget = newTarget;
                         StateManager.lastTargetSwitch = now;
                     } else {
+                         // Persist the same target
                         StateManager.currentTarget = newTarget;
                     }
                 } else {
@@ -1086,9 +1151,9 @@
         const aimbotInstance = new XcloudAimbot();
 
         if (document.readyState === 'complete' || document.readyState === 'interactive') {
-            setTimeout(() => aimbotInstance.initialize(), 2500);
+            aimbotInstance.initialize();
         } else {
-            window.addEventListener('load', () => setTimeout(() => aimbotInstance.initialize(), 2500));
+            window.addEventListener('load', () => aimbotInstance.initialize());
         }
 
         window.xcloudAimbot = aimbotInstance;
@@ -1096,7 +1161,14 @@
     })
     .catch(error => {
         console.error("[XcloudAimbot] FATAL ERROR: Unable to start Aimbot due to failed dependency loading.", error);
-        Notifier.show("Fatal Error: Aimbot could not start. Check console for dependency loading issues.", "error", 10000);
+        const Notifier = { show: (message) => {
+            const el = document.createElement('div');
+            el.style.cssText = 'position:fixed;top:20px;left:50%;transform:translateX(-50%);padding:10px 20px;border-radius:5px;color:white;z-index:1000000;background-color:rgba(255,0,0,0.8);font-family:sans-serif;';
+            el.textContent = message;
+            document.body.appendChild(el);
+            setTimeout(() => el.remove(), 10000);
+        }};
+        Notifier.show("Fatal Error: Aimbot could not start. Check console (F12) for dependency loading issues.");
     });
 
 })();
