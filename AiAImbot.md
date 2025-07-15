@@ -33,4 +33,4 @@ i use xcloud more so these might not update faster or it might be older because 
 
 ## EXPERIMENTAL MODELS
 
-The soon better models that may have bugs but i will be working on these more and lesser on the current version
+The soon b̶e̶t̶t̶e̶r̶ models that may have bugs b̶u̶t̶ ̶i̶ ̶w̶i̶l̶l̶ ̶b̶e̶ ̶w̶o̶r̶k̶i̶n̶g̶ ̶o̶n̶ ̶t̶h̶e̶s̶e̶ ̶m̶o̶r̶e̶ ̶a̶n̶d̶ ̶l̶e̶s̶s̶e̶r̶ ̶o̶n̶ ̶t̶h̶e̶ ̶c̶u̶r̶r̶e̶n̶t̶ ̶v̶e̶r̶s̶i̶o̶n̶, overall ill be working on more shittier versions in experimental and the ai aimbot(POSE) is gonna be the better one
