@@ -4,14 +4,14 @@ This project implements an AI-powered aimbot designed for the Xbox cloud gaming 
 
 ## 🚀 Key Features
 
-- **Object Detection:** Utilizes TensorFlow.js and Coco-SSD to identify "person" objects within the game's video stream.
-- **GPU & CPU Support:** Offers two versions, one optimized for GPU acceleration (`aiAimbotGPU.js`) and another for CPU-based processing (`aiAimbotCPU.js`), ensuring compatibility across different systems.
-- **Configurable Settings:**  A comprehensive `config` object allows users to customize various parameters, including detection confidence, target priority, aiming behavior, recoil compensation, and auto-actions.
+- **Object Detection:** Utilizes TensorFlow.js and Pose detection to identify Enemies within the game's video stream.
+- **Different OS Support:** Offers Support for Windows Linux or ChromeOS, ensuring compatibility across different systems.
+- **Configurable Settings:**  A comprehensive `config` object allows users to customize various parameters, including detection confidence, target priority, aiming behavior, Triggerbot, and ESP.
 - **Target Prioritization:** Selects the optimal target based on configurable criteria such as proximity.
-- **Recoil Compensation:** Counteracts weapon recoil for improved accuracy.
-- **Auto-Actions:** Automates actions like shooting, crouching, and reloading.
+- **Auto Prediction:** Counteracts input delay for improved accuracy.
+- **Triggerbot:** Automates actions like shooting..
 - **Visual Overlay:**  Displays a crosshair, field of view (FOV) circle, and bounding boxes around detected targets on an overlay canvas.
-- **Dynamic Dependency Loading:** Uses `dependencies.js` to load TensorFlow.js and Coco-SSD dynamically, ensuring the necessary libraries are available before the aimbot starts.
+- **Dynamic Dependency Loading:** Uses `DEPENDENCIES(POSE).js` to load TensorFlow.js and Pose detection dynamically, ensuring the necessary libraries are available before the aimbot starts.
 
 ## 🛠️ Tech Stack
 
