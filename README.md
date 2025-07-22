@@ -1,8 +1,8 @@
 # Ai AImbot(ChromeOS/Windows/Ios/Android/Xbox Support)
 
-This is a JavaScript project that does what was once claimed to be impossible by an experienced javascript developer aka owner of betterxcloud
+This is a JavaScript project and some stuff in here prob looks like you use it in tampermonkey but its dev tools console only
 ## Setup
-Discord: https://discord.gg/EmdR3qgn8s
+Discord and other info: https://guns.lol/wesd
 
 make sure ur not on fullscreen on xcloud and press ctrl + shift + i and go to the console tab,           (any other devives need you to search up how to get developer tools console)
 copy both of the dependencies and any of the codes you want like gpu ai aimbot or cpu ai aimbot, then when you try to paste it in it might not work cause you need to type "allow pasting" or something like that, dw when u do it will tell you want u need to type to allow pasting, type that in then paste in the code based on the order below and it should work
