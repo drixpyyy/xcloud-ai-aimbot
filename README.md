@@ -69,12 +69,11 @@ Once the aimbot is running, it will automatically detect and aim at humanoid pos
 
 fortnite: 
 
-<img src="https://media.discordapp.net/attachments/1395473504966545539/1395474201342902332/image.png?ex=687fda20&amp;is=687e88a0&amp;hm=10327e46be34c5cbd9065295c164cf7d4bd161ab5204f02a98292074c4133931&amp;=&amp;format=webp&amp;quality=lossless" alt="Image"/><img src="https://media.discordapp.net/attachments/1395473504966545539/1395474201342902332/image.png?ex=687fda20&amp;is=687e88a0&amp;hm=10327e46be34c5cbd9065295c164cf7d4bd161ab5204f02a98292074c4133931&amp;=&amp;format=webp&amp;quality=lossless" alt="Image"/><img width="977" height="812" alt="image" src="https://github.com/user-attachments/assets/43708b47-cd71-4f90-a5a0-e29d48118de1" />
-<img width="977" height="812" alt="image" src="https://github.com/user-attachments/assets/6eae1890-5ebb-4f9d-9464-eef53e62e8f2" />
+<img src="https://media.discordapp.net/attachments/1395473504966545539/1395474201342902332/image.png?ex=687fda20&amp;is=687e88a0&amp;hm=10327e46be34c5cbd9065295c164cf7d4bd161ab5204f02a98292074c4133931&amp;=&amp;format=webp&amp;quality=lossless" alt="Image"/><
 
 r6 seige:
 
-<img src="https://media.discordapp.net/attachments/1395473504966545539/1395473568971751424/IMG_9839.png?ex=687fd989&amp;is=687e8809&amp;hm=6e1bc3670cabe818b19f5f8ea0209802a96891bd668de7110ce9d53e62323cee&amp;=&amp;format=webp&amp;quality=lossless" alt="Image"/><img width="655" height="873" alt="image" src="https://github.com/user-attachments/assets/dcf8440a-55d4-4638-9481-fbee126d4d23" />
+<img src="https://media.discordapp.net/attachments/1395473504966545539/1395473568971751424/IMG_9839.png?ex=687fd989&amp;is=687e8809&amp;hm=6e1bc3670cabe818b19f5f8ea0209802a96891bd668de7110ce9d53e62323cee&amp;=&amp;format=webp&amp;quality=lossless" alt="Image"/>
 
 
 
