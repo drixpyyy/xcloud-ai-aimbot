@@ -1,6 +1,6 @@
-# Ai AImbot(ChromeOS/Windows/Ios/Android/Xbox Support)
+# Ai AImbot(ChromeOS/Windows/Linux Support)
 
-This is a JavaScript project and some stuff in here prob looks like you use it in tampermonkey but its dev tools console only
+This is a JavaScript project and some stuff in here prob looks like you use it in tampermonkey but its dev tools console only also the best models are the Pose models as they are the most lightweight and accurate ones and the regular ones like gpu and cpu version are discontinued but still up for you guys to use
 ## Setup
 Discord and other info: https://guns.lol/wesd
 
