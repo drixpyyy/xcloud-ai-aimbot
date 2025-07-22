@@ -1,6 +1,6 @@
 # AI-Powered Aimbot for xCloud 🎮🎯
 
-This project implements an AI-powered aimbot designed for the Xbox cloud gaming platform. It leverages TensorFlow.js and Pose detection to detect Poses in the game stream and assists the player in aiming at opponents. ~~It offers both GPU and CPU-based implementations~~ gpu/cpu ones discontinued its forced to use gpu or integrated gpu, The aimbot provides features like target prioritization, triggerbot, Rainbow ESP, and an overlay for visual feedback.
+This project implements an AI-powered aimbot designed for the Xbox cloud gaming platform. It leverages TensorFlow.js and Pose detection to detect Poses in the game stream and assists the player in aiming at opponents. ~~It offers both GPU and CPU-based implementations~~ gpu/cpu ones discontinued its forced to use gpu or integrated gpu, The aimbot provides features like target prioritization, triggerbot, Rainbow ESP, and an overlay for visual feedback. also this project is the first of its kind, the first ever **WORKING** and actively maintained ai aimbot fully made in javascript not python.
 
 ## 🚀 Key Features
 
