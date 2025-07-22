@@ -1,36 +1,91 @@
-# Ai AImbot(ChromeOS/Windows/Linux Support)
+# AI-Powered Aimbot for xCloud 🎮🎯
 
-This is a JavaScript project and some stuff in here prob looks like you use it in tampermonkey but its dev tools console only also the best models are the Pose models as they are the most lightweight and accurate ones and the regular ones like gpu and cpu version are discontinued but still up for you guys to use
-## Setup
-Discord and other info: https://guns.lol/wesd
+This project implements an AI-powered aimbot designed for the Xbox cloud gaming platform. It leverages TensorFlow.js and Pose detection to detect Poses in the game stream and assists the player in aiming at opponents. ~~It offers both GPU and CPU-based implementations~~ gpu/cpu ones discontinued its forced to use gpu or integrated gpu, The aimbot provides features like target prioritization, triggerbot, Rainbow ESP, and an overlay for visual feedback.
 
-make sure ur not on fullscreen on xcloud and press ctrl + shift + i and go to the console tab,           (any other devives need you to search up how to get developer tools console)
-copy both of the dependencies and any of the codes you want like gpu ai aimbot or cpu ai aimbot, then when you try to paste it in it might not work cause you need to type "allow pasting" or something like that, dw when u do it will tell you want u need to type to allow pasting, type that in then paste in the code based on the order below and it should work
+## 🚀 Key Features
 
-basically run dependencies FIRST then run the ai aimbot and it should work if not then go to the discord for support
-also this should work for geforce now but i never tested it, EVERY TIME you refresh you need to paste back in the dependencies then the ai aimbot for it to work
+- **Object Detection:** Utilizes TensorFlow.js and Coco-SSD to identify "person" objects within the game's video stream.
+- **GPU & CPU Support:** Offers two versions, one optimized for GPU acceleration (`aiAimbotGPU.js`) and another for CPU-based processing (`aiAimbotCPU.js`), ensuring compatibility across different systems.
+- **Configurable Settings:**  A comprehensive `config` object allows users to customize various parameters, including detection confidence, target priority, aiming behavior, recoil compensation, and auto-actions.
+- **Target Prioritization:** Selects the optimal target based on configurable criteria such as proximity.
+- **Recoil Compensation:** Counteracts weapon recoil for improved accuracy.
+- **Auto-Actions:** Automates actions like shooting, crouching, and reloading.
+- **Visual Overlay:**  Displays a crosshair, field of view (FOV) circle, and bounding boxes around detected targets on an overlay canvas.
+- **Dynamic Dependency Loading:** Uses `dependencies.js` to load TensorFlow.js and Coco-SSD dynamically, ensuring the necessary libraries are available before the aimbot starts.
+
+## 🛠️ Tech Stack
+
+- **Frontend:** JavaScript
+- **AI/ML:**
+    - TensorFlow.js (`tf`):  JavaScript library for machine learning in the browser.
+    - Pose detection:  Pre-trained object detection model.
+- **Game Interaction:** Keyboard and Mouse Simulation(controller coming soon)
+- **Platform:** Xbox cloud gaming
+
+## 📦 Getting Started / Setup Instructions
+
+### Prerequisites
+
+- A web browser compatible with xCloud gaming (e.g., Chrome, Edge).
+- A basic understanding of JavaScript and web development concepts.
+
+### Installation
+
+1.  **Load Dependencies:**  The `DEPENDENCIES(POSE).js` file dynamically loads TensorFlow.js and Pose detection ai model.  You'll need to execute this script in the browser's developer console on the xCloud gaming stream.
+
+    ```javascript
+    // Paste the contents of DEPENDENCIES(POSE).js into the console and execute.
+    ```
+
+2.  **Aimbot Script:** Choose `AI AIMBOT(POSE).js`. Paste the contents of the chosen script into the browser's developer console after the dependencies have loaded and the game stream is loaded.
+
+    ```javascript
+    // Paste the contents of either AI AIMBOT(POSE).js into the console and execute.
+    ```
+
+### Running Locally
+
+This project is designed to run directly within the browser's developer console on the xCloud gaming platform. There is no separate local server or build process required.
+
+1.  Navigate to the xCloud gaming website and start a game.
+2.  Open the browser's developer console (usually by pressing F12 or ctrl + shift + i or clicking the 3 dots in the top right and clicking "more tools" then clicking developer tools then switching over to the console tab).
+3.  Follow the installation steps above to load the dependencies and the aimbot script.
+4.  The aimbot should now be active in the game.
+
+## 💻 Usage
+
+Once the aimbot is running, it will automatically detect and aim at humanoid poses(works on skins like peely or the pickle skin in fortnite) in the game. You can customize the behavior of the aimbot by modifying the config within the script. and other settings to fine-tune the aimbot to your preferences.
+
+## 📂 Project Structure
+
+```
+├── AI Aimbot(experimental.js        # experimental versions
+├── AI AIMBOT(POSE).js        # pose detection based ai aimbot
+├── DEPENDENCIES(POSE).js       # Dynamically loads TensorFlow.js and the ai model
+└── README.md             # Project documentation
+```
+
+## 📸 Screenshots
+
+fortnite: 
+
+<img src="https://media.discordapp.net/attachments/1395473504966545539/1395474201342902332/image.png?ex=687fda20&amp;is=687e88a0&amp;hm=10327e46be34c5cbd9065295c164cf7d4bd161ab5204f02a98292074c4133931&amp;=&amp;format=webp&amp;quality=lossless" alt="Image"/><img src="https://media.discordapp.net/attachments/1395473504966545539/1395474201342902332/image.png?ex=687fda20&amp;is=687e88a0&amp;hm=10327e46be34c5cbd9065295c164cf7d4bd161ab5204f02a98292074c4133931&amp;=&amp;format=webp&amp;quality=lossless" alt="Image"/><img width="977" height="812" alt="image" src="https://github.com/user-attachments/assets/43708b47-cd71-4f90-a5a0-e29d48118de1" />
+<img width="977" height="812" alt="image" src="https://github.com/user-attachments/assets/6eae1890-5ebb-4f9d-9464-eef53e62e8f2" />
+
+r6 seige:
+
+<img src="https://media.discordapp.net/attachments/1395473504966545539/1395473568971751424/IMG_9839.png?ex=687fd989&amp;is=687e8809&amp;hm=6e1bc3670cabe818b19f5f8ea0209802a96891bd668de7110ce9d53e62323cee&amp;=&amp;format=webp&amp;quality=lossless" alt="Image"/><img width="655" height="873" alt="image" src="https://github.com/user-attachments/assets/dcf8440a-55d4-4638-9481-fbee126d4d23" />
 
 
-## Settings
 
-use common sense
+## 🤝 Contributing
 
-basically everything else you should know like aim speed fov size etc
+Contributions are welcome! If you have any ideas for improvements, bug fixes, or new features, please put them in the discord.
 
-## GPU VERSION(works on integrated gpu also i have to put this here for retards)
+## 📝 License
 
-so basically gpu version runs the ai on the gpu which will have better performance but doesnt mean it will completely get rid of lag and there is no possible "javascript fps booster 2025 working method edit: just proven to be possible with the (POSE) models" without making the ai so ass that it barely works
+This project is **NOT** licensed under the MIT License.
 
+## 📬 Contact
 
-## POSE models
-
-best model yet, has 2x better performance and aiming and very guud but still needs some working and it most likely works for other games than just fortnite and works super well
-
-
-## GFN MODELS
-
-i use xcloud more so these might not update faster or it might be older because gfn is a money hungry faggot company that crashes on the free version when u try to open fortnite but ill try to get it working or keep up to date incase yall like it but most likely never working
-
-## EXPERIMENTAL MODELS
-
-The soon b̶e̶t̶t̶e̶r̶ models that may have bugs b̶u̶t̶ ̶i̶ ̶w̶i̶l̶l̶ ̶b̶e̶ ̶w̶o̶r̶k̶i̶n̶g̶ ̶o̶n̶ ̶t̶h̶e̶s̶e̶ ̶m̶o̶r̶e̶ ̶a̶n̶d̶ ̶l̶e̶s̶s̶e̶r̶ ̶o̶n̶ ̶t̶h̶e̶ ̶c̶u̶r̶r̶e̶n̶t̶ ̶v̶e̶r̶s̶i̶o̶n̶, overall ill be working on more shittier versions in experimental and the ai aimbot(POSE) is gonna be the better one
+If you have any questions or issues, please feel free to contact me at [guns.lol](https://guns.lol/wesd) .
