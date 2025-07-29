@@ -56,7 +56,7 @@
                 enabled: true,
                 maxSpeed: 100.0,
                 minSpeed: 25.0,
-                slowdownRadius: 200,
+                slowdownRadius: 90,
                 nonlinear: {
                     enabled: true,
                     exponent: 2.0
