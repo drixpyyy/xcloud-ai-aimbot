@@ -2,26 +2,35 @@ function loadScript(url) {
   return new Promise((resolve, reject) => {
     const script = document.createElement('script');
     script.src = url;
-    script.onload = resolve; // Resolve the promise when the script loads
-    script.onerror = reject; // Reject if there's an error loading
-    document.head.appendChild(script); // Add the script to the page
+    script.onload = resolve;
+    script.onerror = reject;
+    document.head.appendChild(script);
   });
 }
-
+ 
 console.log("Loading TensorFlow.js core...");
-loadScript('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js')
+loadScript('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.18.0/dist/tf.min.js')
   .then(() => {
-    console.log("TensorFlow.js LOADED.");
-    console.log("Loading Pose detection model script...");
+    console.log("TensorFlow.js core LOADED.");
+    console.log("Loading WebGPU backend...");
+    return loadScript('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-webgpu@4.18.0/dist/tf-backend-webgpu.min.js');
+  })
+  .then(() => {
+    console.log("WebGPU backend script LOADED.");
+    console.log("Setting backend to WebGPU...");
+ 
+    return tf.setBackend('webgpu').then(() => tf.ready());
+  })
+  .then(() => {
+    console.log("WebGPU backend set and ready.");
+    console.log("Loading Pose detection model...");
     return loadScript('https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@2.0.0/dist/pose-detection.min.js');
   })
   .then(() => {
     console.log("Pose detection model script LOADED.");
-    console.log("Libraries loaded successfully. You can now paste the main XcloudCheat script code.");
+    console.log("✅ Libraries and WebGPU backend successfully loaded. You can now run the main script.");
   })
   .catch(error => {
-    console.error("Failed to load required libraries:", error);
+    console.error("❌ Failed to load required libraries:", error);
     alert("Error loading dependency scripts. Check the console.");
   });
-
-// --- DO NOT PASTE THE MAIN SCRIPT UNTIL YOU SEE "Libraries loaded successfully..." AND MAKE SURE THE STREAM IS LOADED WHEN YOU EXECUTE THE MAIN SCRIPT ---
