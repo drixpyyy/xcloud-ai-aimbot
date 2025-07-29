@@ -19,7 +19,7 @@
             keypointConfidence: 0.20, // Minimum confidence for individual keypoints
             maxDetections: 5, // Maximum number of players to detect on screen
             processingInterval: 5, // Process every Nth frame for performance
-            skipFrames: 3, // Additional frames to skip for performance
+            skipFrames: 2, // Additional frames to skip for performance
             ignoreSelfRegion: { // Area of the screen to ignore for detection
                 enabled: true,
                 xPercent: 0.00,
