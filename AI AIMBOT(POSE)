@@ -57,7 +57,9 @@
                 enabled: true,
                 speedPercent: 45.0
             },
-            smartSlowdown: { // fixes wobble issues on bad fps, anything below 100+ fps for the ai(any ai aimbot so dont say mine is trash cuz dis) makes it wobble to aim and since xcloud caps fps at 61 this is here
+// fixes wobble issues on bad fps, anything below 100+ fps for the ai(any ai aimbot so dont say mine is trash cuz dis) makes it wobble to aim and since xcloud caps fps
+// at 61 this is here, make min slowdownspeed 20 if u want absolutely 0 wobbles but some people might get outside of the fov if ur fov is small
+            smartSlowdown: {
                 enabled: true,
                 maxSpeed: 100.0,
                 minSpeed: 40.0,
