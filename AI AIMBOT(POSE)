@@ -43,9 +43,12 @@
             }
         },
         aim: {
-            activationKey: 'MouseRight', // Right mouse button to activate aimbot
+            alwaysOn: {
+                enabled: false // When true, aimbot is always on and the aimkey disables it.
+            },
+            activationKey: 'MouseRight', // Right mouse button to activate/deactivate aimbot
             activationButton: 'A', // bind for controller players
-            toggleMode: true,
+            toggleMode: false, // Note: This is ignored if alwaysOn is enabled.
             fovRadius: 136,
             aimPoint: "torso_center",
             headOffset: 0.15,
@@ -206,7 +209,7 @@
                 index: null,
                 lastButtonStates: {},
                 lastAxes: [0, 0, 0, 0],
-                aimActive: false,
+                aimActive: false, // Will be initialized based on config
                 virtualGamepad: {
                     active: false,
                     axes: [0, 0, 0, 0],
@@ -521,6 +524,13 @@
             state.input.lastMouseX = window.innerWidth / 2;
             state.input.lastMouseY = window.innerHeight / 2;
 
+            // --- MODIFIED: Set initial aim state based on config ---
+            state.input.gamepad.aimActive = config.aim.alwaysOn.enabled;
+            if (config.aim.alwaysOn.enabled) {
+                showNotification('Aimbot is Always-On. Hold aimkey to disable.', 'info');
+            }
+            // --- END MODIFICATION ---
+
             document.addEventListener('mousemove', e => {
                 state.input.lastMouseX = e.clientX;
                 state.input.lastMouseY = e.clientY;
@@ -536,32 +546,48 @@
                     state.input.leftButtonDown = true;
                     state.input.shootingStartTime = performance.now();
                 }
+                // --- MODIFIED: Handle "always on" logic ---
                 if (e.button === 2) {
                     state.input.rightButtonDown = true;
                     if (config.aim.activationKey === 'MouseRight') {
-                        if (config.aim.toggleMode && !state.input.gamepad.aimActive) {
-                            state.input.gamepad.aimActive = true;
-                            showNotification('Aimbot enabled (Right-click)', 'info');
-                        } else if (!config.aim.toggleMode) {
-                            state.input.gamepad.aimActive = true;
+                        if (config.aim.alwaysOn.enabled) {
+                            state.input.gamepad.aimActive = false; // Disable on press
+                        } else {
+                            // Original logic
+                            if (config.aim.toggleMode && !state.input.gamepad.aimActive) {
+                                state.input.gamepad.aimActive = true;
+                                showNotification('Aimbot enabled (Right-click)', 'info');
+                            } else if (!config.aim.toggleMode) {
+                                state.input.gamepad.aimActive = true;
+                            }
                         }
                     }
                 }
+                // --- END MODIFICATION ---
             });
             document.addEventListener('mouseup', e => {
                 if (e.button === 0) {
                     state.input.leftButtonDown = false;
                     state.input.shootingStartTime = 0;
                 }
+                // --- MODIFIED: Handle "always on" logic ---
                 if (e.button === 2) {
                     state.input.rightButtonDown = false;
-                    if (config.aim.activationKey === 'MouseRight' && config.aim.toggleMode && state.input.gamepad.aimActive) {
-                        state.input.gamepad.aimActive = false;
-                        showNotification('Aimbot disabled (Right-click)', 'info');
-                    } else if (config.aim.activationKey === 'MouseRight' && !config.aim.toggleMode) {
-                        state.input.gamepad.aimActive = false;
+                    if (config.aim.activationKey === 'MouseRight') {
+                        if (config.aim.alwaysOn.enabled) {
+                            state.input.gamepad.aimActive = true; // Re-enable on release
+                        } else {
+                            // Original logic
+                            if (config.aim.toggleMode && state.input.gamepad.aimActive) {
+                                state.input.gamepad.aimActive = false;
+                                showNotification('Aimbot disabled (Right-click)', 'info');
+                            } else if (!config.aim.toggleMode) {
+                                state.input.gamepad.aimActive = false;
+                            }
+                        }
                     }
                 }
+                // --- END MODIFICATION ---
             });
 
             if (config.controller.enabled) {
@@ -574,7 +600,7 @@
                 window.addEventListener('gamepaddisconnected', e => {
                     state.input.gamepad.connected = false;
                     state.input.gamepad.index = null;
-                    state.input.gamepad.aimActive = false;
+                    state.input.gamepad.aimActive = config.aim.alwaysOn.enabled; // Reset to default
                     state.input.gamepad.lastButtonStates = {};
                     debug.log(`Gamepad disconnected: ${e.gamepad.id}`);
                     showNotification('Gamepad disconnected', 'info');
@@ -598,21 +624,29 @@
             };
 
             if (gamepad) {
-                const activationButton = buttonMap[config.aim.activationButton] || 0;
-                const currentButtonState = gamepad.buttons[activationButton].pressed;
-                const wasPressed = state.input.gamepad.lastButtonStates[activationButton] || false;
+                const activationButtonIndex = buttonMap[config.aim.activationButton] || 0;
+                const currentButtonState = gamepad.buttons[activationButtonIndex].pressed;
 
-                if (currentButtonState && !wasPressed) {
-                    if (config.aim.toggleMode) {
-                        state.input.gamepad.aimActive = !state.input.gamepad.aimActive;
-                        showNotification(`Aimbot ${state.input.gamepad.aimActive ? 'enabled' : 'disabled'} (Controller)`, 'info');
-                    } else {
-                        state.input.gamepad.aimActive = true;
+                // --- MODIFIED: Handle "always on" logic for gamepad ---
+                if (config.aim.alwaysOn.enabled) {
+                    // Hold aim button to disable, release to enable.
+                    state.input.gamepad.aimActive = !currentButtonState;
+                } else {
+                    // Original logic
+                    const wasPressed = state.input.gamepad.lastButtonStates[activationButtonIndex] || false;
+                    if (currentButtonState && !wasPressed) { // Button just pressed
+                        if (config.aim.toggleMode) {
+                            state.input.gamepad.aimActive = !state.input.gamepad.aimActive;
+                            showNotification(`Aimbot ${state.input.gamepad.aimActive ? 'enabled' : 'disabled'} (Controller)`, 'info');
+                        } else {
+                            state.input.gamepad.aimActive = true;
+                        }
+                    } else if (!currentButtonState && wasPressed && !config.aim.toggleMode) { // Button just released
+                        state.input.gamepad.aimActive = false;
                     }
-                } else if (!currentButtonState && wasPressed && !config.aim.toggleMode) {
-                    state.input.gamepad.aimActive = false;
+                    state.input.gamepad.lastButtonStates[activationButtonIndex] = currentButtonState;
                 }
-                state.input.gamepad.lastButtonStates[activationButton] = currentButtonState;
+                // --- END MODIFICATION ---
 
                 const shootButton = buttonMap[config.controller.shootButton] || 7;
                 const shootPressed = gamepad.buttons[shootButton].pressed;
