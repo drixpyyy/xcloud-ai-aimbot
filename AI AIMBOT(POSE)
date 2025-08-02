@@ -46,7 +46,7 @@
             alwaysOn: {
                 enabled: false // When true, aimbot is always on and the aimkey disables it.
             },
-            activationKey: 'MouseRight', // Right mouse button to activate/deactivate aimbot
+            activationKey: 'MouseRight', // KeyQ is for q KeyE is for e ETC.
             activationButton: 'A', // bind for controller players
             toggleMode: false, // Note: This is ignored if alwaysOn is enabled.
             fovRadius: 136,
