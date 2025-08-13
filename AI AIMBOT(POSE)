@@ -1,6 +1,4 @@
 (function() {
-    'use strict';
-
     // =================================================================================================
     // CONFIGURATION
     // All customizable settings for the aimbot are defined here.
@@ -142,7 +140,7 @@
             },
             tracers: {
                 enabled: true,
-                color: 'rgba(255, 255, 255, 0.2)',
+                color: 'rgba(255, 255, 255, 0.9)',
                 lineWidth: 1
             },
             fovCircle: {
@@ -869,7 +867,7 @@
                 ctx.lineTo(bSX + bSW, bSY + cS);
                 ctx.moveTo(bSX + cS, bSY + bSH);
                 ctx.lineTo(bSX, bSY + bSH);
-                ctx.lineTo(bSX, bSY + bSH - cS);
+                ctx.lineTo(bSX, bSH - cS);
                 ctx.moveTo(bSX + bSW - cS, bSY + bSH);
                 ctx.lineTo(bSX + bSW, bSY + bSH);
                 ctx.lineTo(bSX + bSW, bSY + bSH - cS);
@@ -953,12 +951,21 @@
     }
 
     function drawTracer(aimPosition, vR) {
-        if (!config.visual?.tracers?.enabled || !state.ui.overlayCtx || !aimPosition || !vR) return;
+        // Ensure tracer is enabled, context exists, aimPosition has valid coords, and videoRect is available
+        if (!config.visual?.tracers?.enabled || !state.ui.overlayCtx || !aimPosition || typeof aimPosition.x === 'undefined' || typeof aimPosition.y === 'undefined' || !vR || vR.width === 0) {
+            return;
+        }
         const ctx = state.ui.overlayCtx;
         const cfg = config.visual.tracers;
+
+        // Start from the center of the game screen
         const startX = vR.left + vR.width / 2;
         const startY = vR.top + vR.height / 2;
-        const { x: endX, y: endY } = aimPosition;
+
+        // End at the calculated aim position
+        const endX = aimPosition.x;
+        const endY = aimPosition.y;
+
         ctx.strokeStyle = cfg.color || 'rgba(255, 255, 255, 0.2)';
         ctx.lineWidth = cfg.lineWidth || 1;
         ctx.beginPath();
@@ -1032,7 +1039,7 @@
         const rectX = videoRect.left + videoRect.width * (region.xPercent || 0);
         const rectY = videoRect.top + videoRect.height * (region.yPercent || 0);
         const rectW = videoRect.width * (region.widthPercent || 0);
-        const rectH = videoRect.height * (region.heightPercent || 0);
+        const rectH = videoR_left + videoRect.height * (region.heightPercent || 0);
         ctx.fillStyle = visConfig.color || 'rgba(50, 50, 50, 0.4)';
         ctx.fillRect(rectX, rectY, rectW, rectH);
     }
@@ -1056,7 +1063,8 @@
                     drawHeadDot(player, videoRect);
                 });
             }
-            if (currentTarget && aimPosition) {
+            // Ensure aimPosition is valid before drawing tracer and aim point
+            if (currentTarget && aimPosition && typeof aimPosition.x !== 'undefined' && typeof aimPosition.y !== 'undefined') {
                 drawTracer(aimPosition, videoRect);
                 drawAimPoint(aimPosition);
             }
@@ -1207,7 +1215,7 @@
         if (!isAimActive || !config.detection?.enabled || !state.modelLoaded) {
             state.currentTarget = null;
             if (state.isShooting) InputController.stopShooting();
-            drawVisuals([], null, null);
+            drawVisuals([], null, null); // Clear visuals if aimbot is inactive
             return;
         }
         const allDetectedPlayers = await detectPlayers();
@@ -1225,7 +1233,7 @@
         } else {
             state.currentTarget = null;
         }
-        let aimPosition = null;
+        let aimPositionForDrawing = null; // This will hold the final position to draw tracer/aimpoint
         if (state.currentTarget) {
             let { x: targetX, y: targetY } = state.currentTarget.screenPosition || { x: 0, y: 0 };
             if (config.aim.prediction.enabled) {
@@ -1236,7 +1244,7 @@
                 }
             }
             const finalAim = calculateFinalAimPosition(targetX, targetY);
-            aimPosition = { x: finalAim.x, y: finalAim.y };
+            aimPositionForDrawing = { x: finalAim.x, y: finalAim.y }; // Use the final calculated aim for drawing
             InputController.moveMouseTo(finalAim.x, finalAim.y);
             if (config.game?.autoShoot && state.currentTarget.distance < (config.aim?.fovRadius || 200) * (config.aim?.triggerThreshold || 0.7)) {
                 if (!state.isShooting) {
@@ -1253,7 +1261,7 @@
             if (state.isShooting) InputController.stopShooting();
         }
         const playersToDraw = config.detection.betterDetection.enabled ? allDetectedPlayers : (state.currentTarget ? [state.currentTarget] : []);
-        drawVisuals(playersToDraw, state.currentTarget, aimPosition);
+        drawVisuals(playersToDraw, state.currentTarget, aimPositionForDrawing); // Pass the explicit position for drawing
     }
 
     // =================================================================================================
@@ -1323,6 +1331,9 @@
         }
 
         createOverlayCanvas();
+        // The worker Blob and URL creation are not directly related to the tracer issue
+        // but are part of the original script's worker setup.
+        // For local testing, ensure these external dependencies are correctly handled or mocked.
         const workerBlob = new Blob(['// Dummy Worker'], { type: 'application/javascript' });
         const workerUrl = URL.createObjectURL(workerBlob);
         new Worker(workerUrl);
