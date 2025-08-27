@@ -15,7 +15,7 @@
             detectorConfig: {
                 modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING, // if the detection sucks so bad despite betterdetection pls use THUNDER instead of LIGHTNING it uses a bigger dataset
                 enableSmoothing: true,
-                minPoseScore: 0.25
+                minPoseScore: 0.25 // low confidences for the sake of getting a detection out of lighting if you use thunder it can see through walls better and u can use 0.35 and still get a detection and lesser false positives
             },
             keypointConfidence: 0.20,
             maxDetections: 5,
@@ -48,11 +48,11 @@
             activationButton: 'A', // bind for controller players
             toggleMode: false, // Note: This is ignored if alwaysOn is enabled.
             fovRadius: 136,
-            aimPoint: "torso_center",
+            aimPoint: "nose", // nose basically head, left_eye, right_eye, left_ear, right_ear, left_shoulder, right_shoulder, left_elbow, right_elbow, left_wrist, right_wrist, left_hip, right_hip, left_knee, right_knee, left_ankle, right_ankle
             headOffset: 0.15,
             bodyOffset: 0.4,
             targetPriority: "center",
-            targetSwitchCooldown: 0.1,
+            targetSwitchCooldown: 0, // my dumbahh had it on 0.1 instead of just 0 thinking it had to be a positive number to work but it just need to be 0 to be off, anyways this is the delay inbetween target switching which frameskipping can start this if its not 0
             triggerThreshold: 0.7,
             aimSpeed: {
                 enabled: true,
@@ -60,7 +60,7 @@
             },
 // fixes wobble issues on bad fps, anything below 100+ fps for the ai(any ai aimbot so dont say mine is trash cuz dis) makes it wobble to aim and since xcloud caps fps
 // at 61 this is here, make min slowdownspeed 20 if u want absolutely 0 wobbles but some people might get outside of the fov if ur fov is small
-            smartSlowdown: {
+            smartSlowdown: { // this certain slow down config works well on 5.9 ingame sens, higher sensitivity will still work decently just might overshoot
                 enabled: true,
                 maxSpeed: 100.0,
                 minSpeed: 40.0,
@@ -87,7 +87,7 @@
         },
         controller: {
             enabled: false, // controller support is buggy i think idrk test it out
-            useVirtualGamepad: false,
+            useVirtualGamepad: false, // experimental feature that i really recommend u dont use it tries to make the ai aimbot use controller movements for aiming at the target which is very buggy
             deadZone: 0.2,
             sensitivity: {
                 x: 2.0,
@@ -98,6 +98,11 @@
         },
         visual: {
             showDebugInfo: true,
+            esp: {
+                // When on, ESP is only shown when you are pressing your aim key.
+                // When off, ESP is always visible. this also means the ai model is constantly running so u get lower fps if ur device is shit
+                showOnlyWhenAiming: false
+            },
             crosshair: {
                 enabled: true,
                 style: 'dot',
@@ -456,17 +461,86 @@
     }
 
     function calculateAimTarget(pred, vRect) {
-        if (!pred || !vRect || !state.gameVideo) return null;
+        if (!pred || !pred.keypoints || !vRect || !state.gameVideo) return null;
+
+        const keypointsMap = new Map(pred.keypoints.map(kp => [kp.name, kp]));
+
+        const getKp = (name) => {
+            const kp = keypointsMap.get(name);
+            if (kp && kp.score >= config.detection.keypointConfidence) {
+                return {
+                    x: vRect.left + kp.x / state.gameVideo.videoWidth * vRect.width,
+                    y: vRect.top + kp.y / state.gameVideo.videoHeight * vRect.height
+                };
+            }
+            return null;
+        };
+
+        let targetPos = null;
+        const aimPart = config.aim.aimPoint;
+
+        switch (aimPart) {
+            case 'head':
+                targetPos = getKp('nose');
+                break;
+            case 'neck': {
+                const lShoulder = getKp('left_shoulder');
+                const rShoulder = getKp('right_shoulder');
+                if (lShoulder && rShoulder) {
+                    targetPos = { x: (lShoulder.x + rShoulder.x) / 2, y: (lShoulder.y + rShoulder.y) / 2 };
+                }
+                break;
+            }
+            case 'torso': {
+                const lShoulder = getKp('left_shoulder');
+                const rShoulder = getKp('right_shoulder');
+                const lHip = getKp('left_hip');
+                const rHip = getKp('right_hip');
+                if (lShoulder && rShoulder && lHip && rHip) {
+                    targetPos = { x: (lShoulder.x + rShoulder.x) / 2, y: (lShoulder.y + lHip.y) / 2 };
+                }
+                break;
+            }
+            case 'pelvis': {
+                const lHip = getKp('left_hip');
+                const rHip = getKp('right_hip');
+                if (lHip && rHip) {
+                    targetPos = { x: (lHip.x + rHip.x) / 2, y: (lHip.y + rHip.y) / 2 };
+                }
+                break;
+            }
+            default: // Allows direct keypoint names
+                targetPos = getKp(aimPart);
+                break;
+        }
+
+        // Fallback to bounding box center if the desired part is not visible
+        if (!targetPos) {
+            const [vBx, vBy, vBw, vBh] = pred.bbox || [0, 0, 0, 0];
+            if (vBw > 0) {
+                const sBx = vRect.left + vBx / state.gameVideo.videoWidth * vRect.width;
+                const sBy = vRect.top + vBy / state.gameVideo.videoHeight * vRect.height;
+                const sBw = vBw / state.gameVideo.videoWidth * vRect.width;
+                const sBh = vBh / state.gameVideo.videoHeight * vRect.height;
+                return {
+                    x: sBx + sBw / 2,
+                    y: sBy + sBh * (config.aim?.bodyOffset || 0.4),
+                    width: sBw,
+                    height: sBh,
+                    bboxRaw: pred.bbox
+                };
+            }
+            return null;
+        }
+
+        // If we found a keypoint-based target, we still need width/height for other parts of the script
         const [vBx, vBy, vBw, vBh] = pred.bbox || [0, 0, 0, 0];
-        const sBx = vRect.left + vBx / state.gameVideo.videoWidth * vRect.width;
-        const sBy = vRect.top + vBy / state.gameVideo.videoHeight * vRect.height;
         const sBw = vBw / state.gameVideo.videoWidth * vRect.width;
         const sBh = vBh / state.gameVideo.videoHeight * vRect.height;
-        let tX = sBx + sBw / 2;
-        let tY = sBy + sBh * (config.aim?.bodyOffset || 0.4);
+
         return {
-            x: tX,
-            y: tY,
+            x: targetPos.x,
+            y: targetPos.y,
             width: sBw,
             height: sBh,
             bboxRaw: pred.bbox
@@ -1039,7 +1113,7 @@
         const rectX = videoRect.left + videoRect.width * (region.xPercent || 0);
         const rectY = videoRect.top + videoRect.height * (region.yPercent || 0);
         const rectW = videoRect.width * (region.widthPercent || 0);
-        const rectH = videoR_left + videoRect.height * (region.heightPercent || 0);
+        const rectH = videoRect_left + videoRect.height * (region.heightPercent || 0);
         ctx.fillStyle = visConfig.color || 'rgba(50, 50, 50, 0.4)';
         ctx.fillRect(rectX, rectY, rectW, rectH);
     }
@@ -1050,25 +1124,31 @@
         ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
         const videoRect = state.gameVideo ? state.gameVideo.getBoundingClientRect() : null;
         const isAimActive = state.input.gamepad.aimActive;
+        const shouldShowESP = !config.visual.esp.showOnlyWhenAiming || isAimActive;
+
         drawCrosshair(videoRect);
+
+        // Draw visuals that only appear when actively aiming
         if (isAimActive) {
             drawFOVCircle(videoRect);
             if (config.detection?.ignoreSelfRegion?.enabled && config.visual?.drawIgnoreRegion?.enabled && videoRect) {
                 drawIgnoreSelfRegionVisualization(videoRect);
             }
-            if (videoRect && videoRect.width > 0 && playersToDraw) {
-                playersToDraw.forEach(player => {
-                    drawTargetLockIndicator(player, videoRect);
-                    drawSkeleton(player, videoRect);
-                    drawHeadDot(player, videoRect);
-                });
-            }
-            // Ensure aimPosition is valid before drawing tracer and aim point
             if (currentTarget && aimPosition && typeof aimPosition.x !== 'undefined' && typeof aimPosition.y !== 'undefined') {
                 drawTracer(aimPosition, videoRect);
                 drawAimPoint(aimPosition);
             }
         }
+
+        // Draw ESP visuals based on the configuration
+        if (shouldShowESP && videoRect && videoRect.width > 0 && playersToDraw) {
+            playersToDraw.forEach(player => {
+                drawTargetLockIndicator(player, videoRect);
+                drawSkeleton(player, videoRect);
+                drawHeadDot(player, videoRect);
+            });
+        }
+
         if (config.visual?.performanceMetrics?.enabled) drawPerformanceMetrics();
         if (config.visual?.showDebugInfo) drawDebugInfo();
     }
@@ -1079,9 +1159,14 @@
     // =================================================================================================
 
     async function detectPlayers() {
-        if (!state.input.gamepad.aimActive) {
+        const isAiming = state.input.gamepad.aimActive;
+        // Allows ESP to be always on by running detection even when not aiming, if configured.
+        const isAlwaysOnESP = config.visual.esp && !config.visual.esp.showOnlyWhenAiming;
+
+        if (!isAiming && !isAlwaysOnESP) {
             return [];
         }
+
         if (!state.gameVideo || !state.modelLoaded || !state.detectionModel ||
             state.gameVideo.paused || state.gameVideo.ended || state.gameVideo.videoWidth === 0) {
             return [];
@@ -1212,56 +1297,65 @@
         InputController.pollGamepad();
         const isAimActive = state.input.gamepad.aimActive;
         const now = performance.now();
-        if (!isAimActive || !config.detection?.enabled || !state.modelLoaded) {
-            state.currentTarget = null;
-            if (state.isShooting) InputController.stopShooting();
-            drawVisuals([], null, null); // Clear visuals if aimbot is inactive
+
+        if (!config.detection?.enabled || !state.modelLoaded) {
+            drawVisuals([], null, null); // Clear visuals if detection is off
             return;
         }
+
         const allDetectedPlayers = await detectPlayers();
-        const newTarget = findBestTarget(allDetectedPlayers);
-        updateTargetPrediction(newTarget);
-        if (newTarget) {
-            if (!state.currentTarget || newTarget.id !== state.currentTarget.id) {
-                if (!state.currentTarget || now - state.lastTargetSwitch > (config.aim?.targetSwitchCooldown || 0)) {
+        let aimPositionForDrawing = null;
+
+        if (isAimActive) {
+            const newTarget = findBestTarget(allDetectedPlayers);
+            updateTargetPrediction(newTarget);
+            if (newTarget) {
+                if (!state.currentTarget || newTarget.id !== state.currentTarget.id) {
+                    if (!state.currentTarget || now - state.lastTargetSwitch > (config.aim?.targetSwitchCooldown || 0)) {
+                        state.currentTarget = newTarget;
+                        state.lastTargetSwitch = now;
+                    }
+                } else {
                     state.currentTarget = newTarget;
-                    state.lastTargetSwitch = now;
                 }
             } else {
-                state.currentTarget = newTarget;
+                state.currentTarget = null;
+            }
+
+            if (state.currentTarget) {
+                let { x: targetX, y: targetY } = state.currentTarget.screenPosition || { x: 0, y: 0 };
+                if (config.aim.prediction.enabled) {
+                    const predictedPos = calculatePredictedPosition(state.currentTarget.id);
+                    if (predictedPos) {
+                        targetX = predictedPos.x;
+                        targetY = predictedPos.y;
+                    }
+                }
+                const finalAim = calculateFinalAimPosition(targetX, targetY);
+                aimPositionForDrawing = { x: finalAim.x, y: finalAim.y };
+                InputController.moveMouseTo(finalAim.x, finalAim.y);
+                if (config.game?.autoShoot && state.currentTarget.distance < (config.aim?.fovRadius || 200) * (config.aim?.triggerThreshold || 0.7)) {
+                    if (!state.isShooting) {
+                        setTimeout(() => {
+                            if (state.currentTarget && state.input.gamepad.aimActive) {
+                                InputController.startShooting();
+                            }
+                        }, config.game?.triggerOptions?.delayBeforeShoot || 0);
+                    }
+                } else if (state.isShooting) {
+                    InputController.stopShooting();
+                }
+            } else {
+                if (state.isShooting) InputController.stopShooting();
             }
         } else {
+            // If not aiming, reset target and stop shooting
             state.currentTarget = null;
-        }
-        let aimPositionForDrawing = null; // This will hold the final position to draw tracer/aimpoint
-        if (state.currentTarget) {
-            let { x: targetX, y: targetY } = state.currentTarget.screenPosition || { x: 0, y: 0 };
-            if (config.aim.prediction.enabled) {
-                const predictedPos = calculatePredictedPosition(state.currentTarget.id);
-                if (predictedPos) {
-                    targetX = predictedPos.x;
-                    targetY = predictedPos.y;
-                }
-            }
-            const finalAim = calculateFinalAimPosition(targetX, targetY);
-            aimPositionForDrawing = { x: finalAim.x, y: finalAim.y }; // Use the final calculated aim for drawing
-            InputController.moveMouseTo(finalAim.x, finalAim.y);
-            if (config.game?.autoShoot && state.currentTarget.distance < (config.aim?.fovRadius || 200) * (config.aim?.triggerThreshold || 0.7)) {
-                if (!state.isShooting) {
-                    setTimeout(() => {
-                        if (state.currentTarget && state.input.gamepad.aimActive) {
-                            InputController.startShooting();
-                        }
-                    }, config.game?.triggerOptions?.delayBeforeShoot || 0);
-                }
-            } else if (state.isShooting) {
-                InputController.stopShooting();
-            }
-        } else {
             if (state.isShooting) InputController.stopShooting();
         }
+
         const playersToDraw = config.detection.betterDetection.enabled ? allDetectedPlayers : (state.currentTarget ? [state.currentTarget] : []);
-        drawVisuals(playersToDraw, state.currentTarget, aimPositionForDrawing); // Pass the explicit position for drawing
+        drawVisuals(playersToDraw, state.currentTarget, aimPositionForDrawing);
     }
 
     // =================================================================================================
