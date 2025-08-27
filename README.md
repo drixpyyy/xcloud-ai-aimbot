@@ -1,1 +1,4 @@
-ok guys i realized the ai aimbot is its own thing so i will no longer be like working on it but i put everything here you can fix bugs go to old versions etc cause i made this entirely with ai even tho i took the idea from a older github that didint even work and added the stuff for it to work and i dont feel like continuing a stolen skidded with ai project
+use POSE one, GFN one WIP/dont work GPU/CPU ones discontinued and are useless/way to laggy 
+
+
+run dependencies first before pose
