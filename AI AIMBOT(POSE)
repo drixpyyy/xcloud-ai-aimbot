@@ -1,10 +1,4 @@
 (function() {
-    // =================================================================================================
-    // CONFIGURATION
-    // All customizable settings for the aimbot are defined here.
-    // Adjust these values to fine-tune the aimbot's behavior, visuals, and input methods.
-    // =================================================================================================
-
     const config = {
         detection: {
             enabled: true,
