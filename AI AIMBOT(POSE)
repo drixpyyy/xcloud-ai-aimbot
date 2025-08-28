@@ -383,7 +383,7 @@
 
     // =================================================================================================
     // MODEL LOADING
-    // Loads the MoveNet model for pose detection.
+    // Loads the AI model for pose detection.
     // =================================================================================================
 
     async function loadDetectionModel() {
@@ -412,7 +412,7 @@
 
     // =================================================================================================
     // TARGET DETECTION
-    // Detects players in the game video using MoveNet.
+    // Detects players in the game-stream using AI.
     // =================================================================================================
 
     function calculateBoundingBoxFromKeypoints(kps) {
@@ -563,11 +563,6 @@
         return bestTarget;
     }
 
-    // =================================================================================================
-    // INPUT CONTROLLER
-    // Handles mouse, keyboard, and controller inputs for aimbot control.
-    // Supports both physical and virtual gamepads for games expecting native controller input.
-    // =================================================================================================
 
     const InputController = {
         init: function() {
