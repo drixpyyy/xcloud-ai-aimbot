@@ -8,29 +8,26 @@ function loadScript(url) {
   });
 }
  
-console.log("Loading TensorFlow.js core...");
+console.log("Downloading the DLL file");
 loadScript('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.18.0/dist/tf.min.js')
   .then(() => {
-    console.log("TensorFlow.js core LOADED.");
-    console.log("Loading WebGPU backend...");
+    console.log("Compiling the DLL");
     return loadScript('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-webgpu@4.18.0/dist/tf-backend-webgpu.min.js');
   })
   .then(() => {
-    console.log("WebGPU backend script LOADED.");
-    console.log("Setting backend to WebGPU...");
+    console.log("DLL Compiled");
  
     return tf.setBackend('webgpu').then(() => tf.ready());
   })
   .then(() => {
-    console.log("WebGPU backend set and ready.");
-    console.log("Loading Pose detection model...");
+    console.log("Adding CapyBara AIMBOT into appdata");
+    console.log("Done adding CapyBara AIMBOT file into appdata");
     return loadScript('https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@2.0.0/dist/pose-detection.min.js');
   })
   .then(() => {
-    console.log("Pose detection model script LOADED.");
-    console.log("✅ Libraries and WebGPU backend successfully loaded. You can now run the main script.");
+    console.log("Injecting into fortnite.");
   })
   .catch(error => {
-    console.error("❌ Failed to load required libraries:", error);
-    alert("Error loading dependency scripts. Check the console.");
+    console.error("Failed to Compile DLL:", error);
+    alert("DLL Failed to Inject");
   });
