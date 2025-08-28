@@ -95,7 +95,7 @@
             esp: {
                 // When on, ESP is only shown when you are pressing your aim key.
                 // When off, ESP is always visible. this also means the ai model is constantly running so u get lower fps if ur device is shit
-                showOnlyWhenAiming: false
+                showOnlyWhenAiming: true
             },
             crosshair: {
                 enabled: true,
