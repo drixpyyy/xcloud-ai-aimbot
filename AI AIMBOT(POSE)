@@ -243,11 +243,6 @@
         return originalGetGamepads();
     };
 
-    // =================================================================================================
-    // DEBUGGER
-    // Simple logging utilities for debugging and user notifications.
-    // =================================================================================================
-
     const debug = {
         log: (...args) => console.log(`[Capybara AI Aimbot]`, ...args),
         warn: (...args) => console.warn(`[Capybara AI Aimbot]`, ...args),
@@ -267,7 +262,7 @@
 
     // =================================================================================================
     // PREDICTION SYSTEM
-    // Handles target movement prediction for smoother aiming.
+    // Handles target movement prediction for no wobbles in aiming.
     // =================================================================================================
 
     function initializeTargetHistory(targetId) {
@@ -343,12 +338,6 @@
         updateTargetHistory(newTarget.id, newTarget.screenPosition, now);
         state.prediction.lastTargetId = newTarget.id;
     }
-
-    // =================================================================================================
-    // BACKEND INITIALIZATION
-    // Sets up TensorFlow.js backend for AI processing.
-    // Attempts WebNN, WebGPU, then WebGL in order of preference.
-    // =================================================================================================
 
     async function setupTensorFlow() {
         try {
@@ -1142,10 +1131,6 @@
         if (config.visual?.showDebugInfo) drawDebugInfo();
     }
 
-    // =================================================================================================
-    // DETECTION CORE
-    // Core logic for detecting players in the game video.
-    // =================================================================================================
 
     async function detectPlayers() {
         const isAiming = state.input.gamepad.aimActive;
