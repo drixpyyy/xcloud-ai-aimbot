@@ -52,12 +52,12 @@
                 enabled: true,
                 speedPercent: 45.0
             },
-// fixes wobble issues on bad fps, anything below 100+ fps for the ai(any ai aimbot so dont say mine is trash cuz dis) makes it wobble to aim and since xcloud caps fps
-// at 61 this is here, make min slowdownspeed 20 if u want absolutely 0 wobbles but some people might get outside of the fov if ur fov is small
+            // fixes wobble issues on bad fps, anything below 100+ fps for the ai(any ai aimbot so dont say mine is trash cuz dis) makes it wobble to aim and since xcloud caps fps
+            // at 61 this is here, make min slowdownspeed 20 if u want absolutely 0 wobbles but some people might get outside of the fov if ur fov is small
             smartSlowdown: { // this certain slow down config works well on 5.9 ingame sens, higher sensitivity will still work decently just might overshoot, it basically lowers your sens based on how close the crosshair is to the target
                 enabled: true,
                 maxSpeed: 100.0,
-                minSpeed: 40.0,
+                minSpeed: 30.0,
                 slowdownRadius: 90,
                 nonlinear: {
                     enabled: true,
@@ -71,12 +71,12 @@
                 minFpsThreshold: 30
             },
             prediction: {
-                enabled: false,
-                latencyCompensation: 50,
-                jitterBufferSize: 3,
+                enabled: true, // This is now enabled by default.
+                latencyCompensation: 75, // Default value, will be updated dynamically.
+                jitterBufferSize: 5,
                 maxVelocity: 1000,
                 smoothingFactor: 0.2,
-                predictionScale: 1.2
+                predictionScale: 1.1 // A more conservative scale to prevent over-prediction.
             }
         },
         controller: {
@@ -259,6 +259,39 @@
         document.body.appendChild(n);
         setTimeout(() => n.remove(), duration);
     }
+    
+    // =================================================================================================
+    // NEW DYNAMIC STATS PARSER
+    // This section reads the stream stats from the HTML element and updates the config.
+    // =================================================================================================
+    
+    function updatePredictionFromStreamStats() {
+        const statsElement = document.querySelector('.StreamStats-module__container___UPibv');
+        if (!statsElement || !statsElement.textContent) {
+            return; // Exit if the element isn't found
+        }
+    
+        const statsText = statsElement.textContent;
+    
+        // Use regular expressions to find the values
+        const pingMatch = statsText.match(/Ping: (\d+) ms/);
+        const jitterMatch = statsText.match(/Jitter: (\d+) ms/);
+        const decodeMatch = statsText.match(/Decode: ([\d.]+) ms/);
+    
+        const ping = pingMatch ? parseInt(pingMatch[1], 10) : 0;
+        const jitter = jitterMatch ? parseInt(jitterMatch[1], 10) : 0;
+        const decode = decodeMatch ? parseFloat(decodeMatch[1]) : 0;
+    
+        // Calculate the total latency. This is a more accurate way to compensate.
+        // We add Ping, Jitter, and Decode time together.
+        const totalLatency = ping + jitter + decode;
+    
+        // Update the prediction configuration if the new value is valid
+        if (totalLatency > 0 && config.aim.prediction.latencyCompensation !== totalLatency) {
+            config.aim.prediction.latencyCompensation = totalLatency;
+            debug.log(`Prediction updated. Latency Compensation: ${totalLatency.toFixed(1)}ms (Ping: ${ping}ms, Jitter: ${jitter}ms, Decode: ${decode.toFixed(1)}ms)`);
+        }
+    }
 
     // =================================================================================================
     // PREDICTION SYSTEM
@@ -313,9 +346,9 @@
         const history = state.prediction.targetHistory[targetId];
         const currentPos = history.positions[history.positions.length - 1];
         const currentTime = history.timestamps[history.timestamps.length - 1];
-        const totalLatency = state.prediction.networkLatency +
-                           state.performance.detectionTime +
-                           config.aim.prediction.latencyCompensation;
+        // The latencyCompensation is now dynamically updated from stream stats
+        const totalLatency = state.performance.detectionTime +
+                           config.aim.prediction.latencyCompensation; 
         const vx = history.smoothedVelocity.x;
         const vy = history.smoothedVelocity.y;
         const scale = config.aim.prediction.predictionScale;
@@ -1059,6 +1092,9 @@
                 ctx.fillText(`Virtual Axes: X:${state.input.gamepad.virtualGamepad.axes[2].toFixed(2)} Y:${state.input.gamepad.virtualGamepad.axes[3].toFixed(2)}`, 10, 144);
             }
         }
+        // Display the dynamically set latency
+        ctx.fillStyle = 'rgba(0, 255, 255, 0.9)';
+        ctx.fillText(`Dynamic Latency Comp: ${config.aim.prediction.latencyCompensation.toFixed(1)}ms`, 10, 160);
     }
 
     function drawPerformanceMetrics() {
@@ -1407,6 +1443,11 @@
             }
         });
         observer.observe({ type: "resource", buffered: true });
+        
+        // Start the dynamic stats updater
+        // This will check for new stats every 3 seconds
+        setInterval(updatePredictionFromStreamStats, 3000);
+
         InputController.init();
         if (config.detection?.enabled) {
             await loadDetectionModel();
