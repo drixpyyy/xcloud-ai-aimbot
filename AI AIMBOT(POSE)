@@ -166,11 +166,6 @@
         }
     };
 
-    // =================================================================================================
-    // STATE
-    // Internal state of the aimbot, tracking game elements, input, and performance metrics.
-    // =================================================================================================
-
     const state = {
         gameVideo: null,
         detectionModel: null,
