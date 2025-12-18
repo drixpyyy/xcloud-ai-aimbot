@@ -14,7 +14,8 @@
             keypointConfidence: 0.20,
             maxDetections: 5,
             processingInterval: 5,
-            skipFrames: 2, // gives more fps for a more consistent aimbot but skips frames, if your detection speed is like 50 ms and below u probably wont feel the frameskip and it will just feel like you got a fps boost
+            skipFrames: 2, // gives more fps for a more consistent aimbot but skips frames, if your fps is like 60 and 50ms and below u probably wont feel the frameskip and it will just feel like you got a fps boost
+            // skip frames can also increase the amount of frames it takes for the aimbot to fully reach the target so it can basically slower speed i dont recommend anything above 2
             ignoreSelfRegion: {
                 enabled: true,
                 xPercent: 0.00,
