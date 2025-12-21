@@ -1,0 +1,27 @@
+(() => {
+  const hz = 200;
+  const frame = 1000 / hz;
+
+  let t = 0;
+
+  const realNow = performance.now.bind(performance);
+  const realRAF = requestAnimationFrame.bind(window);
+  const realDate = Date.now.bind(Date);
+
+  performance.now = () => t;
+  Date.now = () => Math.floor(realDate() / frame) * frame;
+
+  requestAnimationFrame = fn =>
+    realRAF(() => {
+      t += frame;
+      fn(t);
+    });
+
+  try {
+    Object.defineProperty(screen, 'refreshRate', {
+      get: () => hz,
+      configurable: true
+    });
+  } catch {}
+
+})();
