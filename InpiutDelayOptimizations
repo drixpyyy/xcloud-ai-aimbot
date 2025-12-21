@@ -1,0 +1,86 @@
+const XCloudOptimizer = (() => {
+    const CONFIG = {
+        latencyCompensation: 35, // ms to look ahead
+        smoothing: 0.4,          // 0.1 (smooth/delayed) to 1.0 (raw/snappy)
+        usePrecisionDelta: true
+    };
+
+    let state = {
+        x: 0, y: 0,
+        vx: 0, vy: 0,
+        lastT: performance.now(),
+        lastClientX: 0,
+        lastClientY: 0
+    };
+
+    // 1. Improved Velocity Tracking with Exponential Smoothing
+    addEventListener('mousemove', e => {
+        const now = e.timeStamp; // More accurate for input events
+        const dt = Math.max(1, now - state.lastT);
+
+        // Calculate raw velocity
+        const rawVx = (e.clientX - state.lastClientX) / dt;
+        const rawVy = (e.clientY - state.lastClientY) / dt;
+
+        // Apply Exponential Moving Average (EMA) to smooth out jitters
+        state.vx = (rawVx * CONFIG.smoothing) + (state.vx * (1 - CONFIG.smoothing));
+        state.vy = (rawVy * CONFIG.smoothing) + (state.vy * (1 - CONFIG.smoothing));
+
+        state.lastClientX = e.clientX;
+        state.lastClientY = e.clientY;
+        state.lastT = now;
+    }, { passive: true, capture: true });
+
+    // 2. Advanced Prediction Engine
+    function getPredictedState() {
+        const now = performance.now();
+        const lookAhead = now - state.lastT + CONFIG.latencyCompensation;
+
+        return {
+            x: state.lastClientX + (state.vx * lookAhead),
+            y: state.lastClientY + (state.vy * lookAhead),
+            vx: state.vx,
+            vy: state.vy
+        };
+    }
+
+    // 3. High-Performance Event Dispatcher
+    // This targets the specific way xCloud reads 'PointerEvents'
+    function dispatchOptimizedMove() {
+        const prediction = getPredictedState();
+
+        const event = new PointerEvent('pointermove', {
+            bubbles: true,
+            cancelable: true,
+            clientX: prediction.x,
+            clientY: prediction.y,
+            // movementX/Y is critical for FPS games/camera control
+            movementX: prediction.vx * 16.67, 
+            movementY: prediction.vy * 16.67,
+            pointerType: 'mouse',
+            pointerId: 1,
+            isPrimary: true,
+            buttons: 0,
+            // Hint to the browser to prioritize this
+            view: window
+        });
+
+        window.dispatchEvent(event);
+    }
+
+    return {
+        start: () => {
+            console.log("XCloud Latency Optimizer Active");
+            // Sync with monitor refresh rate
+            const loop = () => {
+                dispatchOptimizedMove();
+                requestAnimationFrame(loop);
+            };
+            requestAnimationFrame(loop);
+        },
+        setLatency: (ms) => CONFIG.latencyCompensation = ms
+    };
+})();
+
+// Initialize
+XCloudOptimizer.start();
