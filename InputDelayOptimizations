@@ -1,7 +1,7 @@
 const XCloudOptimizer = (() => {
     const CONFIG = {
-        latencyCompensation: 35, // ms to look ahead
-        smoothing: 0.4,          // 0.1 (smooth/delayed) to 1.0 (raw/snappy)
+        latencyCompensation: 75, // ms to look ahead
+        smoothing: 0.4,          
         usePrecisionDelta: true
     };
 
