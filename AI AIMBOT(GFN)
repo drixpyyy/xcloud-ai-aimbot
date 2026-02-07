@@ -1,9 +1,9 @@
 // ==UserScript==
-// @name        Fortnite GeForce NOW Precision Aimbot (MoveNet)
+// @name        Fortnite xbox cloud gaming Precision Aimbot (MoveNet)
 // @description High-performance aimbot for Fortnite on GeForce NOW using MoveNet with self-detection mitigation.
 // @author      Improved Version (Adapted for GeForce NOW)
 // @version     4.2.7
-// @match       *://play.geforcenow.com/*
+// @match       *://https://www.xbox.com/en-US/play/launch/fortnite/BT5P2X999VH2/*
 // @grant       none
 // @run-at      document-end
 // @require     https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-core@3.18.0/dist/tf-core.min.js
