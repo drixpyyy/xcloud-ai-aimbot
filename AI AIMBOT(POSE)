@@ -43,7 +43,7 @@
             activationButton: 'A', // bind for controller players
             toggleMode: false, // Note: This is ignored if alwaysOn is enabled.
             fovRadius: 136,
-            aimPoint: "nose", // nose basically head, left_eye, right_eye, left_ear, right_ear, left_shoulder, right_shoulder, left_elbow, right_elbow, left_wrist, right_wrist, left_hip, right_hip, left_knee, right_knee, left_ankle, right_ankle
+            aimPoint: "left_hip", // nose basically head, left_eye, right_eye, left_ear, right_ear, left_shoulder, right_shoulder, left_elbow, right_elbow, left_wrist, right_wrist, left_hip, right_hip, left_knee, right_knee, left_ankle, right_ankle
             headOffset: 0.15,
             bodyOffset: 0.4,
             targetPriority: "center",
@@ -51,14 +51,14 @@
             triggerThreshold: 0.7,
             aimSpeed: {
                 enabled: true,
-                speedPercent: 45.0
+                speedPercent: 55.3 // this config is specificallyy made for 7.4 sens and 45 ads sens in fortnite change if needed
             },
             // fixes wobble issues on bad fps, anything below 100+ fps for the ai(any ai aimbot so dont say mine is trash cuz dis) makes it wobble to aim and since xcloud caps fps
             // at 61 this is here, make min slowdownspeed 20 if u want absolutely 0 wobbles but some people might get outside of the fov if ur fov is small
             smartSlowdown: { // this certain slow down config works well on 5.9 ingame sens, higher sensitivity will still work decently just might overshoot, it basically lowers your sens based on how close the crosshair is to the target
                 enabled: true,
-                maxSpeed: 100.0,
-                minSpeed: 30.0,
+                maxSpeed: 100.0, // this config is specificallyy made for 7.4 sens and 45 ads sens in fortnite change if needed
+                minSpeed: 30.9, // this config is specificallyy made for 7.4 sens and 45 ads sens in fortnite change if needed
                 slowdownRadius: 90,
                 nonlinear: {
                     enabled: true,
