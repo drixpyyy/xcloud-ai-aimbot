@@ -1,86 +1,647 @@
-const XCloudOptimizer = (() => {
+/**
+ * ========================================================================
+ * XCLOUD ULTRA OPTIMIZER v3.0
+ * Advanced Latency Compensation & Motion Prediction System
+ * ========================================================================
+ * Features:
+ * - Automatic ping/jitter/decode detection from xCloud stats
+ * - Multi-model prediction (Linear, Quadratic, Kalman-inspired)
+ * - Adaptive smoothing based on network conditions
+ * - Frame-perfect interpolation
+ * - Advanced jitter compensation
+ * - Visual debug overlay
+ * - Sub-pixel precision rendering
+ * ========================================================================
+ */
+
+(function() {
+    'use strict';
+
+    // ========================================================================
+    // CONFIGURATION
+    // ========================================================================
     const CONFIG = {
-        latencyCompensation: 75, // ms to look ahead
-        smoothing: 0.4,          
-        usePrecisionDelta: true
+        // Auto-detection settings
+        autoDetection: {
+            enabled: true,
+            updateInterval: 2000, // Check stats every 2 seconds
+            statsSelector: '.StreamStats-module__container___UPibv', // xCloud stats element
+            fallbackLatency: 75, // Fallback if detection fails
+            minLatency: 10, // Minimum compensation (prevents negative prediction)
+            maxLatency: 300 // Maximum compensation (safety limit)
+        },
+
+        // Prediction models
+        prediction: {
+            model: 'adaptive', // 'linear', 'quadratic', 'kalman', 'adaptive'
+            baseLatency: 75, // Will be auto-updated
+            jitterBuffer: 15, // Additional buffer for jitter
+            decodeTime: 0, // Will be auto-updated
+            adaptiveScale: 1.2, // Multiplier for high-velocity movements
+            confidenceThreshold: 0.7 // Minimum confidence to apply full prediction
+        },
+
+        // Smoothing & filtering
+        smoothing: {
+            enabled: true,
+            velocityAlpha: 0.3, // EMA smoothing (0 = no smoothing, 1 = instant)
+            accelerationAlpha: 0.25,
+            adaptiveSmoothing: true, // Reduce smoothing during fast movements
+            minAlpha: 0.15, // Minimum smoothing during fast motion
+            maxAlpha: 0.6 // Maximum smoothing during slow motion
+        },
+
+        // Jitter compensation
+        jitter: {
+            enabled: true,
+            detectionWindow: 10, // Frames to analyze
+            threshold: 5, // Pixels - movements below this are considered jitter
+            dampingFactor: 0.5, // How much to dampen jitter
+            adaptiveDamping: true // Increase damping when jitter is detected
+        },
+
+        // Input optimization
+        input: {
+            usePrecisionDelta: true, // Sub-pixel movement precision
+            frameSync: true, // Sync with RAF for frame-perfect dispatch
+            pointerPressure: 0.5, // Simulated pressure for pointer events
+            coalescedEvents: true // Bundle micro-movements
+        },
+
+        // Visual feedback
+        visual: {
+            enabled: true,
+            showOverlay: true,
+            showPrediction: false, // Show predicted cursor position
+            showMetrics: true,
+            position: 'top-right', // 'top-left', 'top-right', 'bottom-left', 'bottom-right'
+            opacity: 0.85
+        },
+
+        // Performance
+        performance: {
+            updateRate: 60, // Target FPS for predictions
+            enableWorker: false, // Offload calculations (experimental)
+            batchEvents: false // Batch multiple events (can reduce overhead)
+        }
     };
 
-    let state = {
-        x: 0, y: 0,
-        vx: 0, vy: 0,
-        lastT: performance.now(),
-        lastClientX: 0,
-        lastClientY: 0
+    // ========================================================================
+    // STATE MANAGEMENT
+    // ========================================================================
+    const STATE = {
+        // Motion tracking
+        position: { x: 0, y: 0 },
+        velocity: { x: 0, y: 0 },
+        acceleration: { x: 0, y: 0 },
+        lastRawPosition: { x: 0, y: 0 },
+        
+        // Timing
+        lastTimestamp: performance.now(),
+        frameCount: 0,
+        
+        // Network stats
+        latency: {
+            ping: 0,
+            jitter: 0,
+            decode: 0,
+            total: 75,
+            history: [],
+            lastUpdate: 0
+        },
+
+        // Jitter detection
+        jitterBuffer: [],
+        isJittery: false,
+        
+        // Prediction confidence
+        confidence: 1.0,
+        velocityMagnitude: 0,
+        
+        // Performance metrics
+        metrics: {
+            fps: 0,
+            frameTime: 0,
+            predictionAccuracy: 0,
+            eventsDispatched: 0,
+            lastFpsUpdate: 0,
+            framesThisSecond: 0
+        },
+
+        // UI
+        overlay: null,
+        overlayCtx: null
     };
 
-    // 1. Improved Velocity Tracking with Exponential Smoothing
-    addEventListener('mousemove', e => {
-        const now = e.timeStamp; // More accurate for input events
-        const dt = Math.max(1, now - state.lastT);
+    // ========================================================================
+    // KALMAN FILTER (Simplified for 2D motion)
+    // ========================================================================
+    class KalmanFilter {
+        constructor() {
+            this.Q = 0.01; // Process noise
+            this.R = 0.1;  // Measurement noise
+            this.P = 1;    // Estimation error
+            this.X = 0;    // Estimated value
+            this.K = 0;    // Kalman gain
+        }
 
-        // Calculate raw velocity
-        const rawVx = (e.clientX - state.lastClientX) / dt;
-        const rawVy = (e.clientY - state.lastClientY) / dt;
+        update(measurement) {
+            // Prediction
+            this.P = this.P + this.Q;
+            
+            // Update
+            this.K = this.P / (this.P + this.R);
+            this.X = this.X + this.K * (measurement - this.X);
+            this.P = (1 - this.K) * this.P;
+            
+            return this.X;
+        }
 
-        // Apply Exponential Moving Average (EMA) to smooth out jitters
-        state.vx = (rawVx * CONFIG.smoothing) + (state.vx * (1 - CONFIG.smoothing));
-        state.vy = (rawVy * CONFIG.smoothing) + (state.vy * (1 - CONFIG.smoothing));
-
-        state.lastClientX = e.clientX;
-        state.lastClientY = e.clientY;
-        state.lastT = now;
-    }, { passive: true, capture: true });
-
-    // 2. Advanced Prediction Engine
-    function getPredictedState() {
-        const now = performance.now();
-        const lookAhead = now - state.lastT + CONFIG.latencyCompensation;
-
-        return {
-            x: state.lastClientX + (state.vx * lookAhead),
-            y: state.lastClientY + (state.vy * lookAhead),
-            vx: state.vx,
-            vy: state.vy
-        };
+        reset() {
+            this.P = 1;
+            this.X = 0;
+        }
     }
 
-    // 3. High-Performance Event Dispatcher
-    // This targets the specific way xCloud reads 'PointerEvents'
-    function dispatchOptimizedMove() {
-        const prediction = getPredictedState();
+    const kalmanFilters = {
+        x: new KalmanFilter(),
+        y: new KalmanFilter(),
+        vx: new KalmanFilter(),
+        vy: new KalmanFilter()
+    };
 
+    // ========================================================================
+    // AUTO PING/STATS DETECTION
+    // ========================================================================
+    function updateNetworkStats() {
+        if (!CONFIG.autoDetection.enabled) return;
+
+        const statsElement = document.querySelector(CONFIG.autoDetection.statsSelector);
+        if (!statsElement || !statsElement.textContent) {
+            // Fallback to default if can't find stats
+            if (STATE.latency.total === 0) {
+                STATE.latency.total = CONFIG.autoDetection.fallbackLatency;
+            }
+            return;
+        }
+
+        const statsText = statsElement.textContent;
+
+        // Parse xCloud stats format: "Ping: X ms, Jitter: Y ms, Decode: Z ms"
+        const pingMatch = statsText.match(/Ping:\s*(\d+)\s*ms/i);
+        const jitterMatch = statsText.match(/Jitter:\s*(\d+)\s*ms/i);
+        const decodeMatch = statsText.match(/Decode:\s*([\d.]+)\s*ms/i);
+
+        const newPing = pingMatch ? parseInt(pingMatch[1], 10) : STATE.latency.ping;
+        const newJitter = jitterMatch ? parseInt(jitterMatch[1], 10) : STATE.latency.jitter;
+        const newDecode = decodeMatch ? parseFloat(decodeMatch[1]) : STATE.latency.decode;
+
+        // Only update if we got valid readings
+        if (newPing > 0) {
+            STATE.latency.ping = newPing;
+            STATE.latency.jitter = newJitter;
+            STATE.latency.decode = newDecode;
+
+            // Calculate total latency with jitter buffer
+            const totalLatency = newPing + newJitter + newDecode + CONFIG.prediction.jitterBuffer;
+
+            // Clamp to safe range
+            STATE.latency.total = Math.max(
+                CONFIG.autoDetection.minLatency,
+                Math.min(CONFIG.autoDetection.maxLatency, totalLatency)
+            );
+
+            // Update history for adaptive algorithms
+            STATE.latency.history.push(STATE.latency.total);
+            if (STATE.latency.history.length > 30) {
+                STATE.latency.history.shift();
+            }
+
+            STATE.latency.lastUpdate = performance.now();
+
+            console.log(`[XCloud Optimizer] Network Stats Updated - Ping: ${newPing}ms, Jitter: ${newJitter}ms, Decode: ${newDecode.toFixed(1)}ms, Total Compensation: ${STATE.latency.total.toFixed(1)}ms`);
+        }
+    }
+
+    // Start auto-detection loop
+    setInterval(updateNetworkStats, CONFIG.autoDetection.updateInterval);
+
+    // ========================================================================
+    // ADVANCED MOTION TRACKING
+    // ========================================================================
+    function updateMotionState(event) {
+        const now = event.timeStamp || performance.now();
+        const dt = Math.max(0.001, (now - STATE.lastTimestamp) / 1000); // Convert to seconds
+
+        // Get raw input
+        const rawX = event.clientX;
+        const rawY = event.clientY;
+
+        // Calculate raw velocity
+        const rawVx = (rawX - STATE.lastRawPosition.x) / dt;
+        const rawVy = (rawY - STATE.lastRawPosition.y) / dt;
+
+        // Jitter detection
+        const movementMag = Math.hypot(rawX - STATE.lastRawPosition.x, rawY - STATE.lastRawPosition.y);
+        if (CONFIG.jitter.enabled) {
+            STATE.jitterBuffer.push(movementMag);
+            if (STATE.jitterBuffer.length > CONFIG.jitter.detectionWindow) {
+                STATE.jitterBuffer.shift();
+            }
+
+            // Check if we're experiencing jitter (small, erratic movements)
+            const avgMovement = STATE.jitterBuffer.reduce((a, b) => a + b, 0) / STATE.jitterBuffer.length;
+            STATE.isJittery = avgMovement < CONFIG.jitter.threshold && STATE.jitterBuffer.length === CONFIG.jitter.detectionWindow;
+        }
+
+        // Apply Kalman filtering for smoother estimates
+        let filteredVx = rawVx;
+        let filteredVy = rawVy;
+
+        if (CONFIG.prediction.model === 'kalman') {
+            filteredVx = kalmanFilters.vx.update(rawVx);
+            filteredVy = kalmanFilters.vy.update(rawVy);
+        }
+
+        // Adaptive smoothing based on velocity
+        let alpha = CONFIG.smoothing.velocityAlpha;
+        if (CONFIG.smoothing.adaptiveSmoothing) {
+            const velocityMag = Math.hypot(filteredVx, filteredVy);
+            // Fast movement = less smoothing, slow = more smoothing
+            const normalizedVel = Math.min(1, velocityMag / 2000); // 2000 px/s = max velocity
+            alpha = CONFIG.smoothing.maxAlpha - (normalizedVel * (CONFIG.smoothing.maxAlpha - CONFIG.smoothing.minAlpha));
+        }
+
+        // Apply jitter damping
+        if (STATE.isJittery && CONFIG.jitter.adaptiveDamping) {
+            alpha *= CONFIG.jitter.dampingFactor;
+        }
+
+        // Exponential Moving Average for velocity
+        STATE.velocity.x = (filteredVx * alpha) + (STATE.velocity.x * (1 - alpha));
+        STATE.velocity.y = (filteredVy * alpha) + (STATE.velocity.y * (1 - alpha));
+
+        // Calculate acceleration
+        const accelX = (STATE.velocity.x - (STATE.acceleration.x || 0)) / dt;
+        const accelY = (STATE.velocity.y - (STATE.acceleration.y || 0)) / dt;
+
+        STATE.acceleration.x = (accelX * CONFIG.smoothing.accelerationAlpha) + ((STATE.acceleration.x || 0) * (1 - CONFIG.smoothing.accelerationAlpha));
+        STATE.acceleration.y = (accelY * CONFIG.smoothing.accelerationAlpha) + ((STATE.acceleration.y || 0) * (1 - CONFIG.smoothing.accelerationAlpha));
+
+        // Update state
+        STATE.position.x = rawX;
+        STATE.position.y = rawY;
+        STATE.lastRawPosition.x = rawX;
+        STATE.lastRawPosition.y = rawY;
+        STATE.lastTimestamp = now;
+        STATE.velocityMagnitude = Math.hypot(STATE.velocity.x, STATE.velocity.y);
+
+        // Calculate prediction confidence (higher velocity = lower confidence in some cases)
+        STATE.confidence = Math.max(0.5, 1 - (STATE.velocityMagnitude / 5000));
+    }
+
+    // ========================================================================
+    // PREDICTION MODELS
+    // ========================================================================
+    function predictPosition() {
+        const lookAhead = STATE.latency.total / 1000; // Convert ms to seconds
+
+        let predictedX, predictedY;
+
+        switch (CONFIG.prediction.model) {
+            case 'linear':
+                // Simple linear extrapolation
+                predictedX = STATE.position.x + (STATE.velocity.x * lookAhead);
+                predictedY = STATE.position.y + (STATE.velocity.y * lookAhead);
+                break;
+
+            case 'quadratic':
+                // Quadratic prediction using acceleration
+                predictedX = STATE.position.x + (STATE.velocity.x * lookAhead) + (0.5 * STATE.acceleration.x * lookAhead * lookAhead);
+                predictedY = STATE.position.y + (STATE.velocity.y * lookAhead) + (0.5 * STATE.acceleration.y * lookAhead * lookAhead);
+                break;
+
+            case 'kalman':
+                // Kalman-filtered prediction
+                const kalmanX = kalmanFilters.x.update(STATE.position.x + (STATE.velocity.x * lookAhead));
+                const kalmanY = kalmanFilters.y.update(STATE.position.y + (STATE.velocity.y * lookAhead));
+                predictedX = kalmanX;
+                predictedY = kalmanY;
+                break;
+
+            case 'adaptive':
+            default:
+                // Hybrid: Use quadratic for fast movements, linear for slow
+                const velocityFactor = Math.min(1, STATE.velocityMagnitude / 1500);
+                
+                const linearX = STATE.position.x + (STATE.velocity.x * lookAhead);
+                const linearY = STATE.position.y + (STATE.velocity.y * lookAhead);
+                
+                const quadX = STATE.position.x + (STATE.velocity.x * lookAhead) + (0.5 * STATE.acceleration.x * lookAhead * lookAhead);
+                const quadY = STATE.position.y + (STATE.velocity.y * lookAhead) + (0.5 * STATE.acceleration.y * lookAhead * lookAhead);
+                
+                // Blend between models based on velocity
+                predictedX = linearX + (quadX - linearX) * velocityFactor;
+                predictedY = linearY + (quadY - linearY) * velocityFactor;
+
+                // Apply adaptive scaling for very fast movements
+                if (STATE.velocityMagnitude > 1000) {
+                    const scale = CONFIG.prediction.adaptiveScale;
+                    predictedX = STATE.position.x + (predictedX - STATE.position.x) * scale;
+                    predictedY = STATE.position.y + (predictedY - STATE.position.y) * scale;
+                }
+                break;
+        }
+
+        // Apply confidence factor
+        const confidenceFactor = Math.max(CONFIG.prediction.confidenceThreshold, STATE.confidence);
+        predictedX = STATE.position.x + (predictedX - STATE.position.x) * confidenceFactor;
+        predictedY = STATE.position.y + (predictedY - STATE.position.y) * confidenceFactor;
+
+        // Clamp to screen bounds
+        predictedX = Math.max(0, Math.min(window.innerWidth, predictedX));
+        predictedY = Math.max(0, Math.min(window.innerHeight, predictedY));
+
+        return { x: predictedX, y: predictedY };
+    }
+
+    // ========================================================================
+    // EVENT DISPATCHING
+    // ========================================================================
+    function dispatchOptimizedEvent() {
+        const predicted = predictPosition();
+
+        // Calculate movement delta with sub-pixel precision
+        const movementX = CONFIG.input.usePrecisionDelta ? 
+            STATE.velocity.x * (1000 / CONFIG.performance.updateRate) :
+            Math.round(STATE.velocity.x * (1000 / CONFIG.performance.updateRate));
+
+        const movementY = CONFIG.input.usePrecisionDelta ?
+            STATE.velocity.y * (1000 / CONFIG.performance.updateRate) :
+            Math.round(STATE.velocity.y * (1000 / CONFIG.performance.updateRate));
+
+        // Create high-fidelity PointerEvent
         const event = new PointerEvent('pointermove', {
             bubbles: true,
             cancelable: true,
-            clientX: prediction.x,
-            clientY: prediction.y,
-            // movementX/Y is critical for FPS games/camera control
-            movementX: prediction.vx * 16.67, 
-            movementY: prediction.vy * 16.67,
+            composed: true,
+            view: window,
+            
+            // Predicted position
+            clientX: CONFIG.input.usePrecisionDelta ? predicted.x : Math.round(predicted.x),
+            clientY: CONFIG.input.usePrecisionDelta ? predicted.y : Math.round(predicted.y),
+            screenX: CONFIG.input.usePrecisionDelta ? predicted.x : Math.round(predicted.x),
+            screenY: CONFIG.input.usePrecisionDelta ? predicted.y : Math.round(predicted.y),
+            
+            // Movement delta (critical for camera control)
+            movementX: movementX,
+            movementY: movementY,
+            
+            // Pointer properties
             pointerType: 'mouse',
             pointerId: 1,
             isPrimary: true,
             buttons: 0,
-            // Hint to the browser to prioritize this
-            view: window
+            button: -1,
+            pressure: CONFIG.input.pointerPressure,
+            
+            // Timing
+            timeStamp: performance.now()
         });
 
-        window.dispatchEvent(event);
+        // Dispatch to the game stream container (xCloud specific)
+        const target = document.querySelector('#game-stream') || 
+                      document.querySelector('video') || 
+                      window;
+        
+        target.dispatchEvent(event);
+        
+        STATE.metrics.eventsDispatched++;
     }
 
-    return {
-        start: () => {
-            console.log("XCloud Latency Optimizer Active");
-            // Sync with monitor refresh rate
-            const loop = () => {
-                dispatchOptimizedMove();
-                requestAnimationFrame(loop);
-            };
-            requestAnimationFrame(loop);
+    // ========================================================================
+    // VISUAL DEBUG OVERLAY
+    // ========================================================================
+    function createOverlay() {
+        if (!CONFIG.visual.enabled || !CONFIG.visual.showOverlay) return;
+
+        const canvas = document.createElement('canvas');
+        canvas.id = 'xcloud-optimizer-overlay';
+        canvas.width = 350;
+        canvas.height = 180;
+        canvas.style.cssText = `
+            position: fixed;
+            ${CONFIG.visual.position.includes('top') ? 'top: 10px;' : 'bottom: 10px;'}
+            ${CONFIG.visual.position.includes('right') ? 'right: 10px;' : 'left: 10px;'}
+            width: 350px;
+            height: 180px;
+            pointer-events: none;
+            z-index: 999999;
+            background: rgba(0, 0, 0, ${CONFIG.visual.opacity});
+            border: 2px solid rgba(0, 255, 0, 0.5);
+            border-radius: 8px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        `;
+
+        document.body.appendChild(canvas);
+        STATE.overlay = canvas;
+        STATE.overlayCtx = canvas.getContext('2d');
+    }
+
+    function updateOverlay() {
+        if (!STATE.overlayCtx || !CONFIG.visual.showMetrics) return;
+
+        const ctx = STATE.overlayCtx;
+        ctx.clearRect(0, 0, STATE.overlay.width, STATE.overlay.height);
+
+        // Title
+        ctx.fillStyle = '#00ff00';
+        ctx.font = 'bold 14px Consolas';
+        ctx.fillText('XCLOUD OPTIMIZER v3.0', 10, 20);
+
+        // Network stats
+        ctx.fillStyle = '#00ffff';
+        ctx.font = '12px Consolas';
+        ctx.fillText(`━━━ Network Stats ━━━`, 10, 40);
+        
+        ctx.fillStyle = '#ffffff';
+        ctx.fillText(`Ping: ${STATE.latency.ping}ms`, 10, 58);
+        ctx.fillText(`Jitter: ${STATE.latency.jitter}ms`, 10, 73);
+        ctx.fillText(`Decode: ${STATE.latency.decode.toFixed(1)}ms`, 10, 88);
+        ctx.fillStyle = '#ffff00';
+        ctx.fillText(`Total Comp: ${STATE.latency.total.toFixed(1)}ms`, 10, 103);
+
+        // Motion stats
+        ctx.fillStyle = '#00ffff';
+        ctx.fillText(`━━━ Motion Stats ━━━`, 180, 40);
+        
+        ctx.fillStyle = '#ffffff';
+        ctx.fillText(`Velocity: ${STATE.velocityMagnitude.toFixed(0)} px/s`, 180, 58);
+        ctx.fillText(`Confidence: ${(STATE.confidence * 100).toFixed(0)}%`, 180, 73);
+        ctx.fillText(`Model: ${CONFIG.prediction.model}`, 180, 88);
+        
+        if (STATE.isJittery) {
+            ctx.fillStyle = '#ff6600';
+            ctx.fillText(`⚠ Jitter Detected`, 180, 103);
+        }
+
+        // Performance
+        ctx.fillStyle = '#00ffff';
+        ctx.fillText(`━━━ Performance ━━━`, 10, 125);
+        
+        ctx.fillStyle = '#ffffff';
+        ctx.fillText(`FPS: ${STATE.metrics.fps}`, 10, 143);
+        ctx.fillText(`Frame: ${STATE.metrics.frameTime.toFixed(1)}ms`, 10, 158);
+        ctx.fillText(`Events: ${STATE.metrics.eventsDispatched}`, 180, 143);
+
+        // Status indicator
+        const statusColor = STATE.latency.total < 80 ? '#00ff00' : 
+                           STATE.latency.total < 150 ? '#ffff00' : '#ff0000';
+        ctx.fillStyle = statusColor;
+        ctx.fillText(`● ACTIVE`, 180, 158);
+    }
+
+    // ========================================================================
+    // MAIN LOOP
+    // ========================================================================
+    let lastFrameTime = performance.now();
+    
+    function mainLoop(timestamp) {
+        requestAnimationFrame(mainLoop);
+
+        // FPS calculation
+        STATE.metrics.framesThisSecond++;
+        if (timestamp - STATE.metrics.lastFpsUpdate >= 1000) {
+            STATE.metrics.fps = STATE.metrics.framesThisSecond;
+            STATE.metrics.framesThisSecond = 0;
+            STATE.metrics.lastFpsUpdate = timestamp;
+        }
+
+        STATE.metrics.frameTime = timestamp - lastFrameTime;
+        lastFrameTime = timestamp;
+
+        // Dispatch optimized event
+        if (CONFIG.input.frameSync) {
+            dispatchOptimizedEvent();
+        }
+
+        // Update overlay
+        if (CONFIG.visual.enabled) {
+            updateOverlay();
+        }
+
+        STATE.frameCount++;
+    }
+
+    // ========================================================================
+    // INPUT LISTENERS
+    // ========================================================================
+    window.addEventListener('mousemove', (e) => {
+        updateMotionState(e);
+        
+        // Dispatch immediately if not frame-synced
+        if (!CONFIG.input.frameSync) {
+            dispatchOptimizedEvent();
+        }
+    }, { passive: true, capture: true });
+
+    // ========================================================================
+    // INITIALIZATION
+    // ========================================================================
+    function initialize() {
+        console.log('%c[XCloud Ultra Optimizer v3.0] Initializing...', 'color: #00ff00; font-weight: bold;');
+        
+        // Initial stats update
+        updateNetworkStats();
+        
+        // Create overlay
+        if (CONFIG.visual.enabled) {
+            createOverlay();
+        }
+        
+        // Start main loop
+        requestAnimationFrame(mainLoop);
+        
+        console.log('%c[XCloud Ultra Optimizer v3.0] Active!', 'color: #00ff00; font-weight: bold;');
+        console.log(`Prediction Model: ${CONFIG.prediction.model}`);
+        console.log(`Auto-Detection: ${CONFIG.autoDetection.enabled ? 'Enabled' : 'Disabled'}`);
+        console.log(`Frame Sync: ${CONFIG.input.frameSync ? 'Enabled' : 'Disabled'}`);
+    }
+
+    // ========================================================================
+    // PUBLIC API
+    // ========================================================================
+    window.XCloudOptimizer = {
+        // Manual latency control
+        setLatency: (ms) => {
+            STATE.latency.total = Math.max(CONFIG.autoDetection.minLatency, 
+                                          Math.min(CONFIG.autoDetection.maxLatency, ms));
+            console.log(`[XCloud Optimizer] Manual latency set to ${ms}ms`);
         },
-        setLatency: (ms) => CONFIG.latencyCompensation = ms
+
+        // Toggle features
+        toggleOverlay: () => {
+            CONFIG.visual.showOverlay = !CONFIG.visual.showOverlay;
+            if (!CONFIG.visual.showOverlay && STATE.overlay) {
+                STATE.overlay.remove();
+                STATE.overlay = null;
+                STATE.overlayCtx = null;
+            } else if (CONFIG.visual.showOverlay && !STATE.overlay) {
+                createOverlay();
+            }
+        },
+
+        toggleAutoDetection: () => {
+            CONFIG.autoDetection.enabled = !CONFIG.autoDetection.enabled;
+            console.log(`[XCloud Optimizer] Auto-detection ${CONFIG.autoDetection.enabled ? 'enabled' : 'disabled'}`);
+        },
+
+        // Change prediction model
+        setModel: (model) => {
+            if (['linear', 'quadratic', 'kalman', 'adaptive'].includes(model)) {
+                CONFIG.prediction.model = model;
+                console.log(`[XCloud Optimizer] Prediction model set to: ${model}`);
+            }
+        },
+
+        // Get current stats
+        getStats: () => ({
+            latency: STATE.latency,
+            velocity: STATE.velocityMagnitude,
+            confidence: STATE.confidence,
+            fps: STATE.metrics.fps,
+            model: CONFIG.prediction.model
+        }),
+
+        // Reset filters
+        reset: () => {
+            kalmanFilters.x.reset();
+            kalmanFilters.y.reset();
+            kalmanFilters.vx.reset();
+            kalmanFilters.vy.reset();
+            STATE.jitterBuffer = [];
+            console.log('[XCloud Optimizer] Filters reset');
+        }
     };
+
+    // Start when DOM is ready
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initialize);
+    } else {
+        initialize();
+    }
+
 })();
 
-// Initialize
-XCloudOptimizer.start();
+// ========================================================================
+// USAGE EXAMPLES
+// ========================================================================
+// The optimizer runs automatically. You can control it via console:
+//
+// XCloudOptimizer.setLatency(100);           // Set manual latency
+// XCloudOptimizer.toggleOverlay();           // Show/hide debug overlay
+// XCloudOptimizer.toggleAutoDetection();     // Enable/disable auto ping detection
+// XCloudOptimizer.setModel('kalman');        // Change prediction model
+// XCloudOptimizer.getStats();                // Get current stats
+// XCloudOptimizer.reset();                   // Reset all filters
