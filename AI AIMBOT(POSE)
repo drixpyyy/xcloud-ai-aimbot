@@ -9,7 +9,7 @@
             detectorConfig: {
                 modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING, // if the detection sucks so bad despite betterdetection pls use THUNDER instead of LIGHTNING it uses a bigger dataset
                 enableSmoothing: true,
-                minPoseScore: 0.25 // low confidences for the sake of getting a detection out of lighting if you use thunder it can see through walls better and u can use 0.35 and still get a detection and lesser false positives
+                minPoseScore: 0.15 // low confidences for the sake of getting a detection out of lighting if you use thunder it can see through walls better and u can use 0.35 and still get a detection and lesser false positives
             },
             keypointConfidence: 0.20,
             maxDetections: 5,
