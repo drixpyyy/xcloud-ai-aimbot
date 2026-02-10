@@ -7,7 +7,7 @@
             },
             modelType: poseDetection.SupportedModels.MoveNet,
             detectorConfig: {
-                modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING, // if the detection sucks so bad despite betterdetection pls use THUNDER instead of LIGHTNING it uses a bigger dataset
+                modelType: poseDetection.movenet.modelType.SINGLEPOSE_THUNDER, // if the detection sucks so bad despite betterdetection pls use THUNDER instead of LIGHTNING it uses a bigger dataset
                 enableSmoothing: true,
                 minPoseScore: 0.25 // low confidences for the sake of getting a detection out of lighting if you use thunder it can see through walls better and u can use 0.35 and still get a detection and lesser false positives
             },
@@ -54,8 +54,8 @@
             // This replaces simple speed reduction with advanced filtering to eliminate wobbles.
             stabilizer: {
                 enabled: true,
-                deadzone: 1.5, // Pixels. If aim is within this radius of the target center, it stops moving completely to prevent micro-jitters.
-                baseSmoothing: 0.65, // 0.0 - 1.0. Higher = More 'robotic' and direct. Lower = Smoother and more human-like.
+                deadzone: 0.3, // Pixels. If aim is within this radius of the target center, it stops moving completely to prevent micro-jitters.
+                baseSmoothing: 0.85, // 0.0 - 1.0. Higher = More 'robotic' and direct. Lower = Smoother and more human-like.
                 dynamicGain: true, // If true, smoothing increases (speed decreases) as you get closer to target.
                 minSmoothing: 0.15 // The floor for smoothing when extremely close to target (makes it stick like glue without vibrating).
             },
