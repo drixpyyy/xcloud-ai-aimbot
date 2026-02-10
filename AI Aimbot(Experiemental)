@@ -54,7 +54,7 @@
             // This replaces simple speed reduction with advanced filtering to eliminate wobbles.
             stabilizer: {
                 enabled: true,
-                deadzone: 2.5, // Pixels. If aim is within this radius of the target center, it stops moving completely to prevent micro-jitters.
+                deadzone: 1.5, // Pixels. If aim is within this radius of the target center, it stops moving completely to prevent micro-jitters.
                 baseSmoothing: 0.65, // 0.0 - 1.0. Higher = More 'robotic' and direct. Lower = Smoother and more human-like.
                 dynamicGain: true, // If true, smoothing increases (speed decreases) as you get closer to target.
                 minSmoothing: 0.15 // The floor for smoothing when extremely close to target (makes it stick like glue without vibrating).
