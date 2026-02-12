@@ -4,7 +4,7 @@
 **ai aimbot**: AI AIMBOT(POSE) and DEPENDENCIES(POSE) copy both of them then load up xbox cloud gaming with fortnite or whatever game then ctrl + shift + i and if pasting doesnt work it seems like common sense but some people are dumb even tho it literally tells them so what u need to do is type "allow pasting" all lowercase just allow pasting then pasting should work then paste in the dependencies FIRST then ai aimbot, highly recommended you use FPS unlocker and the inputdelayoptimizations
 
 
-**FPSUNLOCKER**: unlocks fps before its locked at 60 now its unlocked to 200 maximum execute before anything else and before the stream loads so do it quick
+**FPSUNLOCKER**: unlocks fps before its locked at 60 now its unlocked to 200 maximum execute before the aimbot
 
 
 **InputDelayOptimizations**: attempts to lower mouse input delay
